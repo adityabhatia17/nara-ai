@@ -5,8 +5,14 @@ import { config } from "./config.js";
 export async function buildServer() {
   const app = Fastify({ logger: config.NODE_ENV !== "test" });
 
+  // TODO: restrict to known origins before production
   await app.register(cors, { origin: true });
 
+  app.get("/ping", async () => ({
+    status: "ok",
+  }));
+
+  // TODO: replace hardcoded "up" with real DB + queue probes once routes are wired
   app.get("/health", async () => ({
     status: "ok",
     db: "up",

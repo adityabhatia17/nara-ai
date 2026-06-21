@@ -1,14 +1,14 @@
 import PgBoss from "pg-boss";
 import { config } from "../config.js";
 
-let boss: PgBoss | null = null;
+let bossPromise: Promise<PgBoss> | null = null;
 
-export async function getQueue(): Promise<PgBoss> {
-  if (!boss) {
-    boss = new PgBoss(config.DATABASE_URL);
-    await boss.start();
+export function getQueue(): Promise<PgBoss> {
+  if (!bossPromise) {
+    const b = new PgBoss(config.DATABASE_URL);
+    bossPromise = b.start().then(() => b);
   }
-  return boss;
+  return bossPromise;
 }
 
 export async function enqueueProcessEntry(entryId: string): Promise<void> {

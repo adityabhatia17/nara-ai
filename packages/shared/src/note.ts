@@ -1,4 +1,4 @@
-import type { ISODateTime, Tone, UUID } from './common.js';
+import type { EntityType, ISODateTime, Tone, UUID } from './common.js';
 
 /**
  * The canonical Note object used everywhere a note is returned.
@@ -14,7 +14,7 @@ export interface NoteCategoryRef {
 export interface NoteEntityRef {
   id: UUID;
   name: string;
-  entity_type: import('./common.js').EntityType;
+  entity_type: EntityType;
 }
 
 export interface Note {

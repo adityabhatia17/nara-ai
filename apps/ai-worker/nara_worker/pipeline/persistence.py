@@ -1,4 +1,5 @@
 from uuid import uuid4
+from ..db import fetchone
 
 CATEGORY_COLORS = {
     "work": "#BE6E45", "books": "#B5913F",
@@ -17,7 +18,8 @@ def canonical_pair(a: str, b: str) -> tuple[str, str]:
 async def find_or_create_category(conn, user_id: str, name: str) -> str:
     lower = name.lower()
     color = CATEGORY_COLORS.get(lower, FALLBACK_COLORS[hash(lower) % len(FALLBACK_COLORS)])
-    row = await conn.fetchone(
+    row = await fetchone(
+        conn,
         "INSERT INTO categories (user_id, name, color) VALUES (%s, %s, %s) "
         "ON CONFLICT (user_id, lower(name)) DO UPDATE SET name=EXCLUDED.name "
         "RETURNING id",
@@ -27,7 +29,8 @@ async def find_or_create_category(conn, user_id: str, name: str) -> str:
 
 
 async def find_or_create_entity(conn, user_id: str, name: str, entity_type: str) -> str:
-    row = await conn.fetchone(
+    row = await fetchone(
+        conn,
         "INSERT INTO entities (user_id, name, entity_type) VALUES (%s, %s, %s) "
         "ON CONFLICT (user_id, entity_type, lower(name)) DO UPDATE SET "
         "mention_count = entities.mention_count + 1, "

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from ..db import fetchall
 
 logger = logging.getLogger(__name__)
 
@@ -9,7 +10,8 @@ MIN_DATA_POINTS = 3  # Rule #3: no pattern surfaced below this threshold
 
 async def detect_patterns_for_user(conn, user_id: str) -> int:
     """Detect co-occurrence patterns for one user. Returns number of patterns written."""
-    rows = await conn.fetchall(
+    rows = await fetchall(
+        conn,
         """
         SELECT
             c.entity_a_id,
@@ -55,8 +57,9 @@ async def detect_patterns_for_user(conn, user_id: str) -> int:
 
 async def run_detect_patterns(conn) -> None:
     """Run pattern detection for all users who have entries."""
-    users = await conn.fetchall(
-        "SELECT DISTINCT user_id FROM entries WHERE status = 'done'"
+    users = await fetchall(
+        conn,
+        "SELECT DISTINCT user_id FROM entries WHERE status = 'done'",
     )
     for user in users:
         await detect_patterns_for_user(conn, user["user_id"])

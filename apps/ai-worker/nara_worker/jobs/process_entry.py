@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 
-from ..db import get_pool
+from ..db import get_pool, fetchone
 from ..pipeline.extraction import extract_from_text
 from ..pipeline.persistence import save_notes_from_extraction
 from ..pipeline.embedding import embed_note
@@ -39,7 +39,8 @@ async def process_entry(entry_id: str) -> None:
 
     # Fetch entry and check status (idempotency guard)
     async with pool.connection() as conn:
-        row = await conn.fetchone(
+        row = await fetchone(
+            conn,
             "SELECT id, user_id, raw_text, status FROM entries WHERE id = %s",
             (entry_id,),
         )

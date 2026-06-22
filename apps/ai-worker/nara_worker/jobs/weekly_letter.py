@@ -3,6 +3,7 @@ from datetime import date, timedelta
 from langchain_core.prompts import ChatPromptTemplate
 from ..clients.groq import get_quality_llm
 from ..prompts.weekly_letter import WEEKLY_LETTER_SYSTEM_PROMPT
+from ..db import fetchall
 
 logger = logging.getLogger(__name__)
 MIN_NOTES_FOR_LETTER = 3
@@ -21,7 +22,8 @@ def _get_quality_llm():
 async def generate_letter_for_user(
     conn, user_id: str, week_start: date, week_end: date
 ) -> None:
-    notes = await conn.fetchall(
+    notes = await fetchall(
+        conn,
         """
         SELECT n.content, n.created_at, n.emotion_score,
                array_agg(c.name) as category_names
@@ -65,6 +67,6 @@ async def run_weekly_letters() -> None:
     week_start = today - timedelta(days=6)
     pool = await get_pool()
     async with pool.connection() as conn:
-        users = await conn.fetchall("SELECT DISTINCT user_id FROM notes")
+        users = await fetchall(conn, "SELECT DISTINCT user_id FROM notes")
         for user in users:
             await generate_letter_for_user(conn, user["user_id"], week_start, week_end)

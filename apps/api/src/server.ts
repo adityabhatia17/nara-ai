@@ -48,7 +48,7 @@ export async function buildServer() {
 
   // Protected routes — all require valid Supabase JWT
   await app.register(async (api) => {
-    api.decorateRequest("user", { getter: () => ({ id: "", email: "" }) });
+    api.decorateRequest("user", null);
     api.addHook("preHandler", authHook);
 
     await api.register(entriesRoutes);

@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timedelta, timezone
 
-from ..db import get_pool
+from ..db import get_pool, fetchone, fetchall
 
 logger = logging.getLogger(__name__)
 MAX_NUDGES_PER_DAY = 2
@@ -12,7 +12,8 @@ INACTIVITY_DAYS = 4
 
 
 async def _in_quiet_hours(conn, user_id: str) -> bool:
-    pref = await conn.fetchone(
+    pref = await fetchone(
+        conn,
         "SELECT quiet_hours_start, quiet_hours_end, timezone "
         "FROM notification_preferences WHERE user_id = %s",
         (user_id,),
@@ -29,7 +30,8 @@ async def _in_quiet_hours(conn, user_id: str) -> bool:
 
 
 async def _nudge_on_cooldown(conn, user_id: str, nudge_type: str) -> bool:
-    row = await conn.fetchone(
+    row = await fetchone(
+        conn,
         "SELECT created_at FROM nudges "
         "WHERE user_id = %s AND nudge_type = %s "
         "ORDER BY created_at DESC LIMIT 1",
@@ -45,7 +47,8 @@ async def evaluate_nudges_for_user(conn, user_id: str) -> None:
     if await _in_quiet_hours(conn, user_id):
         return
 
-    today_count = await conn.fetchone(
+    today_count = await fetchone(
+        conn,
         "SELECT COUNT(*) as c FROM nudges "
         "WHERE user_id = %s AND created_at > now() - interval '1 day'",
         (user_id,),
@@ -55,7 +58,8 @@ async def evaluate_nudges_for_user(conn, user_id: str) -> None:
 
     # Inactivity nudge
     if not await _nudge_on_cooldown(conn, user_id, "inactivity"):
-        last = await conn.fetchone(
+        last = await fetchone(
+            conn,
             "SELECT created_at FROM entries "
             "WHERE user_id = %s ORDER BY created_at DESC LIMIT 1",
             (user_id,),
@@ -71,7 +75,8 @@ async def evaluate_nudges_for_user(conn, user_id: str) -> None:
 
     # Loose end nudge
     if not await _nudge_on_cooldown(conn, user_id, "loose_end"):
-        le = await conn.fetchone(
+        le = await fetchone(
+            conn,
             "SELECT le.id, le.intention_text, le.note_id FROM loose_ends le "
             "WHERE le.user_id = %s AND le.status = 'open' "
             "ORDER BY le.created_at ASC LIMIT 1",
@@ -88,8 +93,9 @@ async def evaluate_nudges_for_user(conn, user_id: str) -> None:
 async def run_evaluate_nudges() -> None:
     pool = await get_pool()
     async with pool.connection() as conn:
-        users = await conn.fetchall(
-            "SELECT DISTINCT user_id FROM notification_preferences"
+        users = await fetchall(
+            conn,
+            "SELECT DISTINCT user_id FROM notification_preferences",
         )
         for user in users:
             await evaluate_nudges_for_user(conn, user["user_id"])

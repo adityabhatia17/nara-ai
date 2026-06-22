@@ -29,7 +29,7 @@ async def _poll_jobs() -> None:
     while True:
         try:
             async with await psycopg.AsyncConnection.connect(conn_str) as conn:
-                row = await conn.execute(
+                cur = await conn.execute(
                     """
                     UPDATE pgboss.job
                     SET state = 'active', started_on = now()
@@ -42,7 +42,8 @@ async def _poll_jobs() -> None:
                     )
                     RETURNING data
                     """
-                ).fetchone()
+                )
+                row = await cur.fetchone()
                 if row:
                     payload = row[0]
                     entry_id = payload["entry_id"]

@@ -40,3 +40,14 @@ async def get_pool() -> AsyncConnectionPool:
             max_size=10,
         )
     return _pool
+
+
+async def close_pool() -> None:
+    """Close the module-level connection pool.
+
+    Safe to call even if the pool was never initialized.
+    """
+    global _pool
+    if _pool is not None:
+        await _pool.close()
+        _pool = None

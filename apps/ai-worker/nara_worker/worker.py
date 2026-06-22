@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from contextlib import asynccontextmanager
+from datetime import datetime
 
 import psycopg
 from fastapi import FastAPI
@@ -11,6 +12,10 @@ from pydantic import BaseModel
 from .config import get_settings
 from .db import close_pool, get_pool
 from .jobs.process_entry import process_entry
+from .jobs.detect_patterns import run_detect_patterns
+from .jobs.weekly_letter import run_weekly_letters
+from .jobs.evaluate_nudges import run_evaluate_nudges
+from .jobs.sweeper import requeue_stuck_entries
 from .rag.ask_nara import ask_nara as _ask_nara
 
 logger = logging.getLogger(__name__)
@@ -60,9 +65,25 @@ async def _poll_jobs() -> None:
         await asyncio.sleep(interval)
 
 
+async def _run_scheduled_jobs() -> None:
+    """Simple clock-based scheduler — runs intelligence jobs on fixed schedules."""
+    while True:
+        now = datetime.utcnow()
+        if now.hour == 2 and now.minute < 1:
+            await run_detect_patterns()
+        if now.weekday() == 6 and now.hour == 18 and now.minute < 1:
+            await run_weekly_letters()
+        if now.hour in (9, 19) and now.minute < 1:
+            await run_evaluate_nudges()
+        if now.minute % 5 == 0:
+            await requeue_stuck_entries()
+        await asyncio.sleep(60)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     asyncio.create_task(_poll_jobs())
+    asyncio.create_task(_run_scheduled_jobs())
     yield
     await close_pool()
 

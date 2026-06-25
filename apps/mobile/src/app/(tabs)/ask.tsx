@@ -28,14 +28,12 @@ import {
   Platform,
 } from 'react-native';
 import { useMutation } from '@tanstack/react-query';
-import * as ExpoRouter from 'expo-router';
 import { colors, fontFamily } from '@/theme/tokens';
 
-// expo-router re-exports useBottomTabBarHeight at runtime (from
-// @react-navigation/bottom-tabs) but doesn't surface its type. Bind it here.
-const useBottomTabBarHeight: () => number = (
-  ExpoRouter as unknown as { useBottomTabBarHeight: () => number }
-).useBottomTabBarHeight;
+// Fixed visual height of the absolute tab bar (paddingTop 9 + ~40 content +
+// paddingBottom 26 + 1 hairline ≈ 76). The docked input pads by this so it
+// always sits just above the bar.
+const TAB_BAR_HEIGHT = 76;
 import { api } from '@/lib/api';
 import { AskResponse, AskRequest } from '@nara/shared';
 import { ChatBubble } from '@/components/chat-bubble';
@@ -69,7 +67,6 @@ const ERROR_MESSAGE_DEFAULT =
 // -- Screen ------------------------------------------------------------------
 
 export default function AskScreen() {
-  const tabBarHeight = useBottomTabBarHeight();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -196,7 +193,7 @@ export default function AskScreen() {
         {!hasMessages && <View style={styles.spacer} />}
 
         {/* Suggestion chips + input bar area -- bottom padding clears the absolute tab bar */}
-        <View style={[styles.footer, { paddingBottom: tabBarHeight + 8 }]}>
+        <View style={[styles.footer, { paddingBottom: TAB_BAR_HEIGHT + 8 }]}>
           {/* Suggestion chips -- shown only when no conversation yet */}
           {!hasMessages && (
             <View style={styles.chipsRow}>

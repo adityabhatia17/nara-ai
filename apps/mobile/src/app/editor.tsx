@@ -69,6 +69,27 @@ body {
 }
 `;
 
+/**
+ * Curated toolbar items, reordered from DEFAULT_TOOLBAR_ITEMS.
+ * Order: Heading (4), Bold (0), Italic (1), Bullet list (10),
+ *        Ordered list (9), Checklist (3), Blockquote (8)
+ *
+ * DEFAULT_TOOLBAR_ITEMS indices (from @10play/tentap-editor v1.x):
+ *  0=Bold, 1=Italic, 2=Link, 3=TaskList, 4=Heading,
+ *  5=Code, 6=Underline, 7=Strikethrough, 8=Blockquote,
+ *  9=OrderedList, 10=BulletList, 11=Indent, 12=Outdent,
+ *  13=Undo, 14=Redo
+ */
+const CURATED_TOOLBAR_ITEMS = [
+  DEFAULT_TOOLBAR_ITEMS[4],  // Heading (opens H1-H6 sub-toolbar)
+  DEFAULT_TOOLBAR_ITEMS[0],  // Bold
+  DEFAULT_TOOLBAR_ITEMS[1],  // Italic
+  DEFAULT_TOOLBAR_ITEMS[10], // Bullet list
+  DEFAULT_TOOLBAR_ITEMS[9],  // Ordered list
+  DEFAULT_TOOLBAR_ITEMS[3],  // Checklist / Task list
+  DEFAULT_TOOLBAR_ITEMS[8],  // Blockquote
+];
+
 export default function EditorScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -90,22 +111,19 @@ export default function EditorScreen() {
     bridgeExtensions: [
       ...TenTapStartKit,
       PlaceholderBridge.configureExtension({
-        placeholder: 'Start writing...',
+        placeholder: 'Start writing…',
       }),
       CoreBridge.configureCSS(editorCSS),
     ],
     theme: {
       toolbar: {
         toolbarBody: {
-          borderTopColor: colors.border.card,
+          borderTopColor: 'rgba(20,22,24,0.07)',
           borderTopWidth: 1,
           backgroundColor: colors.paper,
         },
         toolbarButton: {
           backgroundColor: 'transparent',
-        },
-        iconDisabled: {
-          tintColor: colors.faint,
         },
         icon: {
           tintColor: colors.body,
@@ -114,7 +132,10 @@ export default function EditorScreen() {
           tintColor: colors.accent,
         },
         iconWrapperActive: {
-          backgroundColor: 'rgba(46, 80, 230, 0.08)',
+          backgroundColor: 'rgba(46,80,230,0.08)',
+        },
+        iconDisabled: {
+          tintColor: colors.faint,
         },
       },
       webview: {
@@ -204,7 +225,7 @@ export default function EditorScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Header — manually offset below status bar */}
+      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
           onPress={handleCancel}
@@ -215,7 +236,7 @@ export default function EditorScreen() {
         </TouchableOpacity>
 
         <Text style={styles.headerTitle}>
-          {isEditMode ? 'Edit Note' : 'New Note'}
+          {isEditMode ? 'Edit note' : 'New note'}
         </Text>
 
         <TouchableOpacity
@@ -250,7 +271,7 @@ export default function EditorScreen() {
           { paddingBottom: insets.bottom },
         ]}
       >
-        <Toolbar editor={editor} items={DEFAULT_TOOLBAR_ITEMS} />
+        <Toolbar editor={editor} items={CURATED_TOOLBAR_ITEMS} />
       </KeyboardAvoidingView>
 
       {/* Save success toast */}
@@ -276,14 +297,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border.card,
+    borderBottomColor: 'rgba(20,22,24,0.07)',
     backgroundColor: colors.paper,
   },
   cancelButton: {
     fontFamily: fontFamily.grotesk,
     fontSize: 14,
     fontWeight: '500',
-    color: colors.accent,
+    color: colors.secondary,
     minWidth: 50,
   },
   headerTitle: {

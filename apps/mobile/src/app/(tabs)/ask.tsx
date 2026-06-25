@@ -57,6 +57,14 @@ const SUGGESTION_CHIPS = [
   "What books have I mentioned?",
 ];
 
+// Design opens with a Nara greeting bubble (Nara.dc.html seeds the thread).
+const WELCOME_MESSAGE: Message = {
+  id: 'welcome',
+  role: 'nara',
+  text: "I've read everything you've shared. Ask me anything about it.",
+  timestamp: new Date(0),
+};
+
 const ERROR_MESSAGE_429 =
   "You've been asking a lot of questions. Try again in a minute.";
 const ERROR_MESSAGE_503 =
@@ -67,7 +75,7 @@ const ERROR_MESSAGE_DEFAULT =
 // -- Screen ------------------------------------------------------------------
 
 export default function AskScreen() {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<Message[]>([WELCOME_MESSAGE]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
 
@@ -158,14 +166,17 @@ export default function AskScreen() {
 
   // -- Layout ----------------------------------------------------------------
 
-  const hasMessages = messages.length > 0 || isTyping;
+  // Chips persist while there are still un-asked suggestions (design behavior).
+  const askedTexts = messages
+    .filter((m) => m.role === 'user')
+    .map((m) => m.text);
+  const remainingChips = SUGGESTION_CHIPS.filter((c) => !askedTexts.includes(c));
 
   return (
     <View style={styles.container}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
         {/* Header with border-bottom */}
         <View style={styles.header}>
@@ -173,31 +184,25 @@ export default function AskScreen() {
           <Text style={styles.subtitle}>She's read everything you've shared.</Text>
         </View>
 
-        {/* Chat thread */}
-        {hasMessages && (
-          <FlatList<Message>
-            ref={flatListRef}
-            data={messages}
-            renderItem={renderMessage}
-            keyExtractor={(item) => item.id}
-            inverted
-            style={styles.chatList}
-            contentContainerStyle={styles.chatContent}
-            ListHeaderComponent={renderListHeader}
-            keyboardDismissMode="interactive"
-            showsVerticalScrollIndicator={false}
-          />
-        )}
-
-        {/* Spacer -- pushes input bar down when no messages */}
-        {!hasMessages && <View style={styles.spacer} />}
+        {/* Chat thread (always present -- opens with Nara's greeting) */}
+        <FlatList<Message>
+          ref={flatListRef}
+          data={messages}
+          renderItem={renderMessage}
+          keyExtractor={(item) => item.id}
+          inverted
+          style={styles.chatList}
+          contentContainerStyle={styles.chatContent}
+          ListHeaderComponent={renderListHeader}
+          keyboardDismissMode="interactive"
+          showsVerticalScrollIndicator={false}
+        />
 
         {/* Suggestion chips + input bar area -- bottom padding clears the absolute tab bar */}
         <View style={[styles.footer, { paddingBottom: TAB_BAR_HEIGHT + 8 }]}>
-          {/* Suggestion chips -- shown only when no conversation yet */}
-          {!hasMessages && (
+          {remainingChips.length > 0 && (
             <View style={styles.chipsRow}>
-              {SUGGESTION_CHIPS.map((chip) => (
+              {remainingChips.map((chip) => (
                 <TouchableOpacity
                   key={chip}
                   style={styles.chip}
@@ -226,10 +231,7 @@ export default function AskScreen() {
               onSubmitEditing={() => handleSend()}
             />
             <TouchableOpacity
-              style={[
-                styles.sendButton,
-                (!input.trim() || askMutation.isPending) && styles.sendButtonDisabled,
-              ]}
+              style={styles.sendButton}
               onPress={() => handleSend()}
               disabled={!input.trim() || askMutation.isPending}
               activeOpacity={0.8}

@@ -1,17 +1,15 @@
 /**
  * Nudges Modal — full-screen dark overlay (#121316)
  *
- * Design spec (§9, §10 Rule #8):
+ * Pixel-matched to Nara.dc.html NUDGES block:
  * - Dark lockscreen background — Home remains visible behind (modal presentation)
- * - "From Nara" in display/700/white at top
- * - FlatList of nudge cards: white bg, 14px radius
- *   - Left: NaraLogo mark (24×24 ink square + cobalt dot)
- *   - Body text (14.5px / 500 / ink)
- *   - Timestamp (11.5px / faint)
- *   - Dismiss action (text-only faint) → POST /nudges/:id/dismiss
- * - "Close" secondary-style button at bottom → dismisses the modal
+ * - Header: date line + clock (lockscreen-style, centered)
+ * - Nudge cards: white bg, 18px radius, NARA label + time header row, body text
+ *   - Left: 24×24 ink rounded square with centered 7px cobalt dot
+ * - "Close" pill button at bottom of list → dismisses the modal
  */
 
+import { useMemo } from 'react';
 import {
   FlatList,
   Pressable,
@@ -20,66 +18,117 @@ import {
   View,
   ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { colors, radius, spacing, typography } from '@/theme/tokens';
+import { colors } from '@/theme/tokens';
 import { api } from '@/lib/api';
 import type { Nudge, NudgesListResponse, DismissNudgeResponse } from '@nara/shared';
 
 // ---------------------------------------------------------------------------
-// Nara mark — 24px ink rounded square with a 6px cobalt dot (bottom-right)
+// Nara mark — 24px ink rounded square with a centered 7px cobalt dot
 // ---------------------------------------------------------------------------
 function NaraMark() {
   return (
-    <View style={styles.markContainer}>
-      <View style={styles.markSquare} />
-      <View style={styles.markDot} />
+    <View style={markStyles.square}>
+      <View style={markStyles.dot} />
     </View>
   );
 }
+
+const markStyles = StyleSheet.create({
+  square: {
+    width: 24,
+    height: 24,
+    borderRadius: 7,
+    backgroundColor: '#18191B',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+  },
+  dot: {
+    width: 7,
+    height: 7,
+    borderRadius: 9999,
+    backgroundColor: '#2E50E6',
+  },
+});
 
 // ---------------------------------------------------------------------------
 // Single nudge card
 // ---------------------------------------------------------------------------
 interface NudgeCardProps {
   nudge: Nudge;
-  onDismiss: (id: string) => void;
-  dismissing: boolean;
+  onPress: (nudge: Nudge) => void;
 }
 
-function NudgeCard({ nudge, onDismiss, dismissing }: NudgeCardProps) {
+function NudgeCard({ nudge, onPress }: NudgeCardProps) {
   const createdAt = new Date(nudge.created_at);
-  const timeLabel = createdAt.toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
+  const timeLabel = createdAt.toLocaleTimeString(undefined, {
+    hour: 'numeric',
     minute: '2-digit',
   });
 
   return (
-    <View style={styles.card}>
-      <View style={styles.cardRow}>
-        <NaraMark />
-        <View style={styles.cardBody}>
-          <Text style={styles.cardText}>{nudge.content}</Text>
-          <Text style={styles.cardMeta}>{timeLabel}</Text>
+    <Pressable
+      onPress={() => onPress(nudge)}
+      style={({ pressed }) => [
+        cardStyles.card,
+        pressed && { opacity: 0.85 },
+      ]}
+    >
+      <NaraMark />
+      <View style={cardStyles.body}>
+        <View style={cardStyles.headerRow}>
+          <Text style={cardStyles.naraLabel}>NARA</Text>
+          <Text style={cardStyles.time}>{timeLabel}</Text>
         </View>
+        <Text style={cardStyles.text}>{nudge.content}</Text>
       </View>
-      <Pressable
-        onPress={() => onDismiss(nudge.id)}
-        disabled={dismissing}
-        style={({ pressed }) => [
-          styles.dismissButton,
-          pressed && styles.dismissButtonPressed,
-        ]}
-      >
-        <Text style={styles.dismissText}>Dismiss</Text>
-      </Pressable>
-    </View>
+    </Pressable>
   );
 }
+
+const cardStyles = StyleSheet.create({
+  card: {
+    backgroundColor: 'rgba(255,255,255,0.96)',
+    borderRadius: 18,
+    paddingVertical: 14,
+    paddingHorizontal: 15,
+    flexDirection: 'row',
+    gap: 11,
+    alignItems: 'flex-start',
+  },
+  body: {
+    flex: 1,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    marginBottom: 3,
+  },
+  naraLabel: {
+    fontFamily: 'SchibstedGrotesk_700Bold',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+    color: '#18191B',
+    textTransform: 'uppercase',
+  },
+  time: {
+    fontFamily: 'SchibstedGrotesk_400Regular',
+    fontSize: 11.5,
+    color: '#8A8E93',
+  },
+  text: {
+    fontFamily: 'SchibstedGrotesk_500Medium',
+    fontSize: 14.5,
+    fontWeight: '500',
+    lineHeight: Math.round(14.5 * 1.42),
+    color: '#26282B',
+  },
+});
 
 // ---------------------------------------------------------------------------
 // Screen
@@ -96,7 +145,7 @@ export default function NudgesModalScreen() {
     },
   });
 
-  const { mutate: dismiss, variables: dismissingId } = useMutation({
+  const { mutate: dismiss } = useMutation({
     mutationFn: async (id: string) => {
       const response = await api.post<DismissNudgeResponse>(
         `/nudges/${id}/dismiss`
@@ -110,12 +159,30 @@ export default function NudgesModalScreen() {
 
   const nudges = data?.nudges ?? [];
 
+  // Format current date & time for lockscreen header
+  const now = useMemo(() => new Date(), []);
+  const dateLine = now.toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+  });
+  const clockLine = now.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: false,
+  });
+
+  const handleNudgePress = (nudge: Nudge) => {
+    // Could navigate to a detail or start a recording; for now dismiss
+    dismiss(nudge.id);
+  };
+
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
+    <View style={styles.container}>
+      {/* Header — lockscreen-style date + clock */}
       <View style={styles.header}>
-        <Text style={styles.title}>From Nara</Text>
-        <Text style={styles.subtitle}>Things worth remembering</Text>
+        <Text style={styles.dateLine}>{dateLine}</Text>
+        <Text style={styles.clock}>{clockLine}</Text>
       </View>
 
       {/* Content */}
@@ -125,7 +192,7 @@ export default function NudgesModalScreen() {
         </View>
       ) : isError ? (
         <View style={styles.centred}>
-          <Text style={styles.errorText}>Could not load nudges.</Text>
+          <Text style={styles.emptyText}>Could not load nudges.</Text>
         </View>
       ) : nudges.length === 0 ? (
         <View style={styles.centred}>
@@ -138,163 +205,110 @@ export default function NudgesModalScreen() {
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           renderItem={({ item }) => (
-            <NudgeCard
-              nudge={item}
-              onDismiss={dismiss}
-              dismissing={dismissingId === item.id}
-            />
+            <NudgeCard nudge={item} onPress={handleNudgePress} />
           )}
+          ListFooterComponent={
+            <View style={styles.closeWrapper}>
+              <Pressable
+                onPress={() => router.back()}
+                style={({ pressed }) => [
+                  styles.closeButton,
+                  pressed && { opacity: 0.7 },
+                ]}
+              >
+                <Text style={styles.closeText}>Close</Text>
+              </Pressable>
+            </View>
+          }
         />
       )}
 
-      {/* Close button */}
-      <View style={styles.footer}>
-        <Pressable
-          onPress={() => router.back()}
-          style={({ pressed }) => [
-            styles.closeButton,
-            pressed && styles.closeButtonPressed,
-          ]}
-        >
-          <Text style={styles.closeText}>Close</Text>
-        </Pressable>
-      </View>
-    </SafeAreaView>
+      {/* Close button for empty / error states */}
+      {(isError || nudges.length === 0 || isLoading) ? null : null}
+      {!isLoading && (isError || nudges.length === 0) && (
+        <View style={styles.closeWrapper}>
+          <Pressable
+            onPress={() => router.back()}
+            style={({ pressed }) => [
+              styles.closeButton,
+              pressed && { opacity: 0.7 },
+            ]}
+          >
+            <Text style={styles.closeText}>Close</Text>
+          </Pressable>
+        </View>
+      )}
+    </View>
   );
 }
 
 // ---------------------------------------------------------------------------
 // Styles
 // ---------------------------------------------------------------------------
-const MARK_SIZE = 24;
-const DOT_SIZE = 7;
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.lockscreen,
+    backgroundColor: '#121316',
   },
+  // Header — lockscreen-style
   header: {
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.lg,
-    gap: spacing.sm,
+    paddingTop: 72,
+    paddingHorizontal: 26,
+    paddingBottom: 18,
+    alignItems: 'center',
   },
-  title: {
-    fontSize: typography.display.fontSize,
-    fontWeight: '700',
-    color: colors.card,
-    letterSpacing: typography.display.letterSpacing,
-    fontFamily: 'SchibstedGrotesk_700Bold',
-  },
-  subtitle: {
-    fontSize: typography.meta.fontSize,
-    fontWeight: '500',
-    color: colors.faint,
+  dateLine: {
     fontFamily: 'SchibstedGrotesk_500Medium',
+    fontSize: 15,
+    fontWeight: '500',
+    color: 'rgba(243,243,241,0.5)',
+    letterSpacing: 0.5,
   },
+  clock: {
+    fontFamily: 'SchibstedGrotesk_600SemiBold',
+    fontSize: 62,
+    fontWeight: '600',
+    color: '#F3F3F1',
+    lineHeight: 62,
+    marginTop: 4,
+    letterSpacing: -1,
+  },
+  // Content
   centred: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: spacing.xl,
-  },
-  errorText: {
-    fontSize: typography.body.fontSize,
-    color: colors.faint,
-    textAlign: 'center',
+    paddingHorizontal: 26,
   },
   emptyText: {
-    fontSize: typography.body.fontSize,
-    color: colors.faint,
+    fontFamily: 'SchibstedGrotesk_500Medium',
+    fontSize: 15,
+    fontWeight: '500',
+    color: 'rgba(243,243,241,0.5)',
     textAlign: 'center',
   },
   listContent: {
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.md,
-    gap: spacing.md,
+    paddingTop: 14,
+    paddingHorizontal: 16,
+    paddingBottom: 40,
+    gap: 9,
   },
-  // Card
-  card: {
-    backgroundColor: colors.card,
-    borderRadius: radius.card,
-    padding: spacing.lg,
-    gap: spacing.md,
-  },
-  cardRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    alignItems: 'flex-start',
-  },
-  cardBody: {
-    flex: 1,
-    gap: spacing.xs,
-  },
-  cardText: {
-    fontSize: 14.5,
-    fontWeight: '500',
-    color: colors.ink,
-    lineHeight: 14.5 * 1.45,
-    fontFamily: 'SchibstedGrotesk_500Medium',
-  },
-  cardMeta: {
-    fontSize: typography.meta.fontSize,
-    fontWeight: '500',
-    color: colors.faint,
-    fontFamily: 'SchibstedGrotesk_400Regular',
-  },
-  dismissButton: {
-    alignSelf: 'flex-end',
-  },
-  dismissButtonPressed: {
-    opacity: 0.6,
-  },
-  dismissText: {
-    fontSize: typography.meta.fontSize,
-    fontWeight: '500',
-    color: colors.faint,
-    fontFamily: 'SchibstedGrotesk_500Medium',
-  },
-  // Nara mark
-  markContainer: {
-    width: MARK_SIZE,
-    height: MARK_SIZE,
-    position: 'relative',
-  },
-  markSquare: {
-    width: MARK_SIZE,
-    height: MARK_SIZE,
-    borderRadius: radius.mark,
-    backgroundColor: colors.ink,
-  },
-  markDot: {
-    width: DOT_SIZE,
-    height: DOT_SIZE,
-    borderRadius: radius.circle,
-    backgroundColor: colors.accent,
-    position: 'absolute',
-    bottom: -2,
-    right: -2,
-  },
-  // Footer close button — secondary style (white text, dark outline)
-  footer: {
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.xl,
+  // Close button — pill, centered
+  closeWrapper: {
+    alignItems: 'center',
+    marginTop: 14,
   },
   closeButton: {
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.25)',
-    borderRadius: radius.card,
-    paddingVertical: spacing.lg,
-    alignItems: 'center',
-  },
-  closeButtonPressed: {
-    opacity: 0.75,
+    paddingVertical: 11,
+    paddingHorizontal: 26,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(243,243,241,0.25)',
   },
   closeText: {
-    fontSize: typography.body.fontSize,
-    fontWeight: '600',
-    color: colors.card,
-    fontFamily: 'SchibstedGrotesk_600SemiBold',
+    fontFamily: 'SchibstedGrotesk_500Medium',
+    fontSize: 13.5,
+    fontWeight: '500',
+    color: 'rgba(243,243,241,0.8)',
   },
 });

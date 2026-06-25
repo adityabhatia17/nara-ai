@@ -5,40 +5,37 @@
  *   Header: NaraLogo (25px mark, 7px radius) + "Nara" (18px, 700, -0.4) gap 9px
  *           Right: time (12.5px, 500, #9A9DA1)
  *   Greeting: 32px, 700, tracking -0.9, ink, margin-bottom 22px
- *   Record button area: centered, padding 52px top 46px bottom
- *     Button: 118px circle, ink bg, shadow
- *     "Hold to talk." -- 16px, 600, ink, margin-top 24px
- *     Subtitle: "Talk for 30 seconds or 10 minutes..." -- 13px, 400, #9A9DA1, margin-top 5px
+ *   Capture hero: centered, padding 52px top 46px bottom
+ *     Button: 118px circle, ink bg, shadow, pencil glyph
+ *     "New note" -- 16px, 600, ink, margin-top 24px
+ *     Subtitle: "Just start writing. No structure needed." -- 13px, 400, #9A9DA1, margin-top 5px
  *   "Recent" header: flex between, eyebrow left, "All notes" 12.5px 600 cobalt right
  *   Note cards: gap 10px
  */
 
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 import {
   ScrollView,
   View,
   Text,
-  TextInput,
   StyleSheet,
   TouchableOpacity,
-  KeyboardAvoidingView,
-  Platform,
   Alert,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import Animated from 'react-native-reanimated';
 import { useReducedMotion } from 'react-native-reanimated';
 
-import { colors, spacing, fontFamily } from '@/theme/tokens';
+import { colors, fontFamily } from '@/theme/tokens';
 import { api } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
 import { NaraLogo } from '@/components/nara-logo';
 import { NoteCard } from '@/components/note-card';
 import { NoteCardSkeleton } from '@/components/NoteCardSkeleton';
-import { usePushDown } from '@/hooks/animations';
-import type { MeResponse, NotesListResponse, NudgesListResponse, CreateEntryRequest, CreateEntryResponse } from '@nara/shared';
+import { usePushDown, usePulseRing } from '@/hooks/animations';
+import type { MeResponse, NotesListResponse, NudgesListResponse } from '@nara/shared';
 
 // -- Date helpers ------------------------------------------------------------
 
@@ -90,16 +87,50 @@ function NudgeBanner({ content, onPress }: NudgeBannerProps) {
   );
 }
 
-// -- Screen ------------------------------------------------------------------
+// -- Capture hero ------------------------------------------------------------
 
-const TAB_BAR_HEIGHT = 80;
+function CaptureHero({ onPress }: { onPress: () => void }) {
+  const reduceMotion = useReducedMotion();
+  const { ring1Style, ring2Style, active } = usePulseRing(reduceMotion);
+
+  return (
+    <View style={styles.heroContainer}>
+      <TouchableOpacity
+        onPress={onPress}
+        activeOpacity={0.85}
+        style={styles.heroTouchable}
+      >
+        {/* Pulse rings — hidden under reduce-motion */}
+        {active && (
+          <>
+            <Animated.View style={[styles.pulseRing, ring1Style]} />
+            <Animated.View style={[styles.pulseRing, ring2Style]} />
+          </>
+        )}
+
+        {/* Main circle */}
+        <View style={styles.heroCircle}>
+          {/* Pencil glyph */}
+          <View style={styles.pencilWrapper}>
+            {/* Body bar — rotated 45deg */}
+            <View style={styles.pencilBody} />
+            {/* Nib triangle — rotated 45deg, positioned below body */}
+            <View style={styles.pencilNib} />
+          </View>
+        </View>
+      </TouchableOpacity>
+
+      <Text style={styles.heroLabel}>New note</Text>
+      <Text style={styles.heroSub}>Just start writing. No structure needed.</Text>
+    </View>
+  );
+}
+
+// -- Screen ------------------------------------------------------------------
 
 export default function HomeScreen() {
   const router = useRouter();
   const now = new Date();
-  const insets = useSafeAreaInsets();
-  const queryClient = useQueryClient();
-  const [quickInput, setQuickInput] = useState('');
 
   // -- Queries
   const meQuery = useQuery({
@@ -130,35 +161,14 @@ export default function HomeScreen() {
     },
   });
 
-  // -- Quick entry mutation
-  const entryMutation = useMutation({
-    mutationFn: async (text: string) => {
-      const res = await api.post<CreateEntryResponse>('/entries', {
-        text,
-      } as CreateEntryRequest);
-      return res.data;
-    },
-    onSuccess: () => {
-      setQuickInput('');
-      queryClient.invalidateQueries({ queryKey: ['notes'] });
-    },
-  });
-
   // -- Derived state
   const displayName = meQuery.data?.display_name ?? null;
   const greeting = `${getGreeting(now)}, ${displayName ?? 'there'}.`;
   const timeLabel = formatHeaderTime(now);
   const recentNotes = notesQuery.data?.notes ?? [];
   const latestNudge = nudgesQuery.data?.nudges?.[0] ?? null;
-  const bottomPadding = TAB_BAR_HEIGHT + insets.bottom;
 
-  const handleQuickSend = useCallback(() => {
-    const text = quickInput.trim();
-    if (!text || entryMutation.isPending) return;
-    entryMutation.mutate(text);
-  }, [quickInput, entryMutation]);
-
-  const handleCreateNew = useCallback(() => {
+  const handleOpenEditor = useCallback(() => {
     router.push('/editor');
   }, [router]);
 
@@ -172,127 +182,82 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
       >
-        <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          keyboardDismissMode="interactive"
-        >
 
-          {/* -- Header row --------------------------------------------------- */}
-          <View style={styles.header}>
-            <NaraLogo size="medium" showWordmark />
-            <View style={styles.headerRight}>
-              <Text style={styles.timeLabel}>{timeLabel}</Text>
-              <TouchableOpacity
-                onPress={() => {
-                  Alert.alert('Log out?', 'You will need to sign in again.', [
-                    { text: 'Cancel', style: 'cancel' },
-                    {
-                      text: 'Log out',
-                      style: 'destructive',
-                      onPress: () => supabase.auth.signOut(),
-                    },
-                  ]);
-                }}
-                activeOpacity={0.7}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <View style={styles.logoutIcon}>
-                  {/* Door with arrow icon */}
-                  <View style={styles.logoutDoor} />
-                  <View style={styles.logoutArrow} />
-                </View>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* -- Greeting ----------------------------------------------------- */}
-          <View style={styles.greetingBlock}>
-            <Text style={styles.greeting}>{greeting}</Text>
-          </View>
-
-          {/* -- Nudge banner (conditional) ----------------------------------- */}
-          {latestNudge ? (
-            <NudgeBanner
-              content={latestNudge.content}
-              onPress={handleOpenNudges}
-            />
-          ) : null}
-
-          {/* -- Recent notes ------------------------------------------------- */}
-          <View style={styles.recentHeader}>
-            <Text style={styles.eyebrow}>Recent</Text>
-            <TouchableOpacity onPress={handleAllNotes} activeOpacity={0.7}>
-              <Text style={styles.allNotesLink}>All notes</Text>
+        {/* -- Header row --------------------------------------------------- */}
+        <View style={styles.header}>
+          <NaraLogo size="medium" showWordmark />
+          <View style={styles.headerRight}>
+            <Text style={styles.timeLabel}>{timeLabel}</Text>
+            <TouchableOpacity
+              onPress={() => {
+                Alert.alert('Log out?', 'You will need to sign in again.', [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Log out',
+                    style: 'destructive',
+                    onPress: () => supabase.auth.signOut(),
+                  },
+                ]);
+              }}
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <View style={styles.logoutIcon}>
+                {/* Door with arrow icon */}
+                <View style={styles.logoutDoor} />
+                <View style={styles.logoutArrow} />
+              </View>
             </TouchableOpacity>
           </View>
+        </View>
 
-          <View style={styles.recentCards}>
-            {notesQuery.isLoading ? (
-              <>
-                <NoteCardSkeleton />
-                <NoteCardSkeleton />
-              </>
-            ) : recentNotes.length > 0 ? (
-              recentNotes.map((note) => (
-                <NoteCard key={note.id} note={note} />
-              ))
-            ) : (
-              <Text style={styles.emptyText}>
-                Share a thought to capture your first note.
-              </Text>
-            )}
-          </View>
+        {/* -- Greeting ----------------------------------------------------- */}
+        <View style={styles.greetingBlock}>
+          <Text style={styles.greeting}>{greeting}</Text>
+        </View>
 
-        </ScrollView>
+        {/* -- Nudge banner (conditional) ----------------------------------- */}
+        {latestNudge ? (
+          <NudgeBanner
+            content={latestNudge.content}
+            onPress={handleOpenNudges}
+          />
+        ) : null}
 
-        {/* -- Bottom area (fixed, above tab bar) ----------------------------- */}
-        <View style={[styles.bottomArea, { paddingBottom: bottomPadding }]}>
-          {/* Quick input row */}
-          <View style={styles.quickInputRow}>
-            <View style={styles.quickInputBar}>
-              <TextInput
-                style={styles.quickInput}
-                placeholder="What's on your mind?"
-                placeholderTextColor="#9A9DA1"
-                value={quickInput}
-                onChangeText={setQuickInput}
-                multiline
-                maxLength={2000}
-                editable={!entryMutation.isPending}
-                returnKeyType="send"
-                blurOnSubmit
-                onSubmitEditing={handleQuickSend}
-              />
-            </View>
-            {quickInput.trim().length > 0 && (
-              <TouchableOpacity
-                style={styles.sendButton}
-                onPress={handleQuickSend}
-                disabled={entryMutation.isPending}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.sendIcon}>↑</Text>
-              </TouchableOpacity>
-            )}
-          </View>
+        {/* -- Capture hero ------------------------------------------------- */}
+        <CaptureHero onPress={handleOpenEditor} />
 
-          {/* Create New button */}
-          <TouchableOpacity
-            style={styles.createNewButton}
-            onPress={handleCreateNew}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.createNewPlus}>+</Text>
-            <Text style={styles.createNewText}>Create a new note</Text>
+        {/* -- Recent notes ------------------------------------------------- */}
+        <View style={styles.recentHeader}>
+          <Text style={styles.eyebrow}>Recent</Text>
+          <TouchableOpacity onPress={handleAllNotes} activeOpacity={0.7}>
+            <Text style={styles.allNotesLink}>All notes</Text>
           </TouchableOpacity>
         </View>
-      </KeyboardAvoidingView>
+
+        <View style={styles.recentCards}>
+          {notesQuery.isLoading ? (
+            <>
+              <NoteCardSkeleton />
+              <NoteCardSkeleton />
+            </>
+          ) : recentNotes.length > 0 ? (
+            recentNotes.map((note) => (
+              <NoteCard key={note.id} note={note} />
+            ))
+          ) : (
+            <Text style={styles.emptyText}>
+              Share a thought to capture your first note.
+            </Text>
+          )}
+        </View>
+
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -304,16 +269,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.paper,
   },
-  keyboardView: {
-    flex: 1,
-  },
   scroll: {
     flex: 1,
   },
   scrollContent: {
     paddingHorizontal: 24,
     paddingTop: 0,
-    paddingBottom: 16,
+    paddingBottom: 122,
   },
 
   // -- Header
@@ -425,6 +387,77 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
 
+  // -- Capture hero
+  heroContainer: {
+    alignItems: 'center',
+    paddingTop: 52,
+    paddingBottom: 46,
+  },
+  heroTouchable: {
+    width: 128,
+    height: 128,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pulseRing: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
+    right: 4,
+    bottom: 4,
+    borderRadius: 59,
+    borderWidth: 1.5,
+    borderColor: 'rgba(46,80,230,0.3)',
+  },
+  heroCircle: {
+    width: 118,
+    height: 118,
+    borderRadius: 59,
+    backgroundColor: '#18191B',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.3,
+    shadowRadius: 34,
+    elevation: 16,
+  },
+  pencilWrapper: {
+    alignItems: 'center',
+    transform: [{ rotate: '45deg' }],
+  },
+  pencilBody: {
+    width: 8,
+    height: 34,
+    borderRadius: 3,
+    backgroundColor: '#F3F3F1',
+  },
+  pencilNib: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 4,
+    borderRightWidth: 4,
+    borderTopWidth: 7,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopColor: '#F3F3F1',
+    marginTop: -1,
+  },
+  heroLabel: {
+    fontFamily: fontFamily.grotesk,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#18191B',
+    marginTop: 24,
+  },
+  heroSub: {
+    fontFamily: fontFamily.grotesk,
+    fontSize: 13,
+    fontWeight: '400',
+    color: '#9A9DA1',
+    marginTop: 5,
+  },
+
   // -- Recent
   recentHeader: {
     flexDirection: 'row',
@@ -456,79 +489,5 @@ const styles = StyleSheet.create({
     color: '#9A9DA1',
     textAlign: 'center',
     paddingVertical: 24,
-  },
-
-  // -- Bottom area (fixed above tab bar)
-  bottomArea: {
-    paddingHorizontal: 18,
-    paddingTop: 10,
-    backgroundColor: colors.paper,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(20,22,24,0.05)',
-  },
-  quickInputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  quickInputBar: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingLeft: 18,
-    paddingRight: 14,
-    paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: 'rgba(20,22,24,0.12)',
-    borderRadius: 999,
-  },
-  quickInput: {
-    flex: 1,
-    fontFamily: fontFamily.grotesk,
-    fontSize: 14,
-    fontWeight: '400',
-    color: '#18191B',
-    paddingVertical: 0,
-    maxHeight: 80,
-  },
-  sendButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 9999,
-    backgroundColor: '#2E50E6',
-    justifyContent: 'center',
-    alignItems: 'center',
-    flexShrink: 0,
-  },
-  sendIcon: {
-    fontFamily: fontFamily.grotesk,
-    fontSize: 16,
-    color: '#FFFFFF',
-    lineHeight: 18,
-    marginTop: -1,
-  },
-  createNewButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#18191B',
-    borderRadius: 14,
-    height: 48,
-    marginTop: 10,
-    gap: 6,
-  },
-  createNewPlus: {
-    fontFamily: fontFamily.grotesk,
-    fontSize: 18,
-    fontWeight: '500',
-    color: colors.paper,
-    marginTop: -1,
-  },
-  createNewText: {
-    fontFamily: fontFamily.grotesk,
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.paper,
   },
 });

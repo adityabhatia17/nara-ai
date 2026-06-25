@@ -45,7 +45,7 @@ export function PersonCard({ person, onPress }: PersonCardProps) {
         <View style={styles.nameRow}>
           <Text style={styles.name}>{person.name}</Text>
           <Text style={styles.count}>
-            · {person.mention_count}
+            · {person.mention_count} mention{person.mention_count !== 1 ? 's' : ''}
           </Text>
         </View>
         {person.last_quote != null && person.last_quote.length > 0 && (

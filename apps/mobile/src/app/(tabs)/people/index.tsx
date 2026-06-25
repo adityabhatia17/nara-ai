@@ -86,7 +86,7 @@ export default function PeopleScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      <SafeAreaView style={styles.container} edges={['left', 'right']}>
         <View style={styles.header}>
           <ScreenTitle
             title="People"
@@ -104,7 +104,7 @@ export default function PeopleScreen() {
 
   if (error) {
     return (
-      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      <SafeAreaView style={styles.container} edges={['left', 'right']}>
         <View style={styles.header}>
           <ScreenTitle
             title="People"
@@ -123,7 +123,7 @@ export default function PeopleScreen() {
   // -- Layout ----------------------------------------------------------------
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
       <View style={styles.header}>
         <ScreenTitle
           title="People"
@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 24,
-    paddingTop: 0,
+    paddingTop: 60,
     paddingBottom: 8,
   },
   listContent: {

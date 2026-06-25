@@ -2,15 +2,18 @@
  * Ask Nara Screen -- Ask tab
  * Chat interface for asking questions about your notes.
  *
- * Design (from Nara.dc.html lines 229-262):
- *   Title: "Ask Nara" -- 32px, weight 700, tracking -0.8, ink
- *   Subtitle: "She's read everything you've shared." -- 13px, weight 400, #9A9DA1
- *   Header: border-bottom 1px solid rgba(20,22,24,0.07)
- *   Chat area: padding 20px
- *   Suggestion chips: inline-flex, padding 9px 14px, white bg, 1px border rgba(20,22,24,0.12),
- *                     radius 999, 13px weight 500, color #4D5560
- *   Input bar: flex row, padding 12px 14px 12px 18px, white bg, 1px border rgba(20,22,24,0.12),
- *              radius 999, placeholder 14px #9A9DA1, send 32px cobalt circle with white arrow
+ * Design (pixel-matched to Nara.dc.html ASK NARA block, lines 229-262):
+ *   Header: paddingTop 60, paddingHorizontal 24, paddingBottom 14,
+ *           borderBottom 1px rgba(20,22,24,0.07)
+ *   Title: "Ask Nara" 32px 700 -0.8 ink
+ *   Subtitle: 13px 400 #9A9DA1 marginTop 4
+ *   Thread: padding 20/20/16, gap 12
+ *   User bubble: right-aligned, cobalt, radius 18/18/6/18
+ *   Nara bubble: left-aligned, white, radius 16/16/16/5
+ *   Typing: left-aligned white bubble, radius 16/16/16/5, three 7px cobalt dots
+ *   Chips: inline-flex, margin 0/6/8/0, padding 9/14, white, border interactive
+ *   Input: row, padding 12/14/12/18, white, border interactive, radius 999
+ *   Footer: padding 10/18/40
  */
 
 import React, { useState, useRef, useCallback } from 'react';
@@ -24,9 +27,8 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMutation } from '@tanstack/react-query';
-import { colors, spacing, fontFamily } from '@/theme/tokens';
+import { colors, fontFamily } from '@/theme/tokens';
 import { api } from '@/lib/api';
 import { AskResponse, AskRequest } from '@nara/shared';
 import { ChatBubble } from '@/components/chat-bubble';
@@ -59,16 +61,12 @@ const ERROR_MESSAGE_DEFAULT =
 
 // -- Screen ------------------------------------------------------------------
 
-const TAB_BAR_HEIGHT = 80;
-
 export default function AskScreen() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const insets = useSafeAreaInsets();
 
   const flatListRef = useRef<FlatList<Message>>(null);
-  const bottomPadding = TAB_BAR_HEIGHT + insets.bottom;
 
   const addMessage = useCallback((msg: Message) => {
     setMessages((prev) => [msg, ...prev]);
@@ -158,7 +156,7 @@ export default function AskScreen() {
   const hasMessages = messages.length > 0 || isTyping;
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+    <View style={styles.container}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -190,7 +188,7 @@ export default function AskScreen() {
         {!hasMessages && <View style={styles.spacer} />}
 
         {/* Suggestion chips + input bar area */}
-        <View style={[styles.bottomArea, { paddingBottom: bottomPadding }]}>
+        <View style={styles.footer}>
           {/* Suggestion chips -- shown only when no conversation yet */}
           {!hasMessages && (
             <View style={styles.chipsRow}>
@@ -211,7 +209,7 @@ export default function AskScreen() {
           <View style={styles.inputBar}>
             <TextInput
               style={styles.input}
-              placeholder="Ask about anything you've said..."
+              placeholder="Ask about anything you've said…"
               placeholderTextColor="#9A9DA1"
               value={input}
               onChangeText={setInput}
@@ -236,7 +234,7 @@ export default function AskScreen() {
           </View>
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -253,8 +251,8 @@ const styles = StyleSheet.create({
 
   // -- Header ----------------------------------------------------------------
   header: {
+    paddingTop: 60,
     paddingHorizontal: 24,
-    paddingTop: 0,
     paddingBottom: 14,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(20,22,24,0.07)',
@@ -280,14 +278,15 @@ const styles = StyleSheet.create({
   },
   chatContent: {
     paddingTop: 16,
-    paddingBottom: 10,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    gap: 12,
   },
 
   // -- Typing indicator ------------------------------------------------------
   typingRow: {
-    paddingHorizontal: 20,
-    marginBottom: 8,
-    alignItems: 'flex-start',
+    justifyContent: 'flex-start',
+    flexDirection: 'row',
   },
   typingBubble: {
     backgroundColor: '#FFFFFF',
@@ -305,18 +304,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  // -- Bottom area (chips + input) -------------------------------------------
-  bottomArea: {
+  // -- Footer (chips + input) ------------------------------------------------
+  footer: {
     flexShrink: 0,
-    paddingHorizontal: 18,
     paddingTop: 10,
+    paddingHorizontal: 18,
+    paddingBottom: 40,
   },
 
   // -- Suggestion chips ------------------------------------------------------
   chipsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginBottom: 8,
   },
   chip: {
     backgroundColor: '#FFFFFF',

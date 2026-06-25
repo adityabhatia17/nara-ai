@@ -28,7 +28,14 @@ import {
   Platform,
 } from 'react-native';
 import { useMutation } from '@tanstack/react-query';
+import * as ExpoRouter from 'expo-router';
 import { colors, fontFamily } from '@/theme/tokens';
+
+// expo-router re-exports useBottomTabBarHeight at runtime (from
+// @react-navigation/bottom-tabs) but doesn't surface its type. Bind it here.
+const useBottomTabBarHeight: () => number = (
+  ExpoRouter as unknown as { useBottomTabBarHeight: () => number }
+).useBottomTabBarHeight;
 import { api } from '@/lib/api';
 import { AskResponse, AskRequest } from '@nara/shared';
 import { ChatBubble } from '@/components/chat-bubble';
@@ -62,6 +69,7 @@ const ERROR_MESSAGE_DEFAULT =
 // -- Screen ------------------------------------------------------------------
 
 export default function AskScreen() {
+  const tabBarHeight = useBottomTabBarHeight();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -187,8 +195,8 @@ export default function AskScreen() {
         {/* Spacer -- pushes input bar down when no messages */}
         {!hasMessages && <View style={styles.spacer} />}
 
-        {/* Suggestion chips + input bar area */}
-        <View style={styles.footer}>
+        {/* Suggestion chips + input bar area -- bottom padding clears the absolute tab bar */}
+        <View style={[styles.footer, { paddingBottom: tabBarHeight + 8 }]}>
           {/* Suggestion chips -- shown only when no conversation yet */}
           {!hasMessages && (
             <View style={styles.chipsRow}>

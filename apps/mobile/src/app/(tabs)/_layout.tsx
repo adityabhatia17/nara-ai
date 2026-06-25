@@ -13,7 +13,7 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { View, StyleSheet, ColorValue } from 'react-native';
-import { colors, fontFamily } from '@/theme/tokens';
+import { fontFamily } from '@/theme/tokens';
 
 // ── Custom tab bar icon components ──────────────────────────────────────────
 
@@ -136,7 +136,7 @@ export default function TabsLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: styles.tabBar,
-        tabBarActiveTintColor: colors.accent,
+        tabBarActiveTintColor: '#18191B',
         tabBarInactiveTintColor: '#A8ABAE',
         tabBarLabelStyle: styles.tabBarLabel,
         tabBarItemStyle: styles.tabBarItem,
@@ -207,6 +207,9 @@ const styles = StyleSheet.create({
     paddingBottom: 26,
     paddingHorizontal: 26,
     height: 'auto' as any,
+    // Design uses only a hairline top border — strip platform default tab-bar shadow.
+    elevation: 0,
+    shadowOpacity: 0,
   },
   tabBarLabel: {
     fontFamily: fontFamily.grotesk,

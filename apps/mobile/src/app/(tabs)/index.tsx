@@ -1,5 +1,5 @@
 /**
- * Home Screen -- Talk tab
+ * Home Screen -- Talk tab (text capture: "New note" hero)
  *
  * Design (from Nara.dc.html lines 29-97):
  *   Header: NaraLogo (25px mark, 7px radius) + "Nara" (18px, 700, -0.4) gap 9px
@@ -248,7 +248,11 @@ export default function HomeScreen() {
             </>
           ) : recentNotes.length > 0 ? (
             recentNotes.map((note) => (
-              <NoteCard key={note.id} note={note} />
+              <NoteCard
+                key={note.id}
+                note={note}
+                onPress={() => router.push(`/(tabs)/notes/${note.id}`)}
+              />
             ))
           ) : (
             <Text style={styles.emptyText}>

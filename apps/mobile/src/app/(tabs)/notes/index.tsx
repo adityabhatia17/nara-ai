@@ -144,7 +144,7 @@ export default function FeedScreen() {
           !isLoading ? (
             <View style={styles.empty}>
               <Text style={styles.emptyText}>
-                Nothing here yet. Tap Talk to add your first note.
+                Nothing here yet. Create a new note to get started.
               </Text>
             </View>
           ) : null

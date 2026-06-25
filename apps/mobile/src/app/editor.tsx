@@ -182,6 +182,7 @@ export default function EditorScreen() {
     },
     onError: (error) => {
       console.error('Save failed:', error);
+      setIsSaving(false);
       Alert.alert('Could not save', 'Something went wrong. Please try again.', [
         { text: 'OK' },
       ]);

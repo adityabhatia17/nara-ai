@@ -88,11 +88,11 @@ export function useBreathe(reduceMotion: boolean) {
 // Stagger: index * 130 ms.
 // Disabled: immediately visible, no translation.
 
-export function useFadeUp(index: number, reduceMotion: boolean) {
+export function useFadeUp(index: number, reduceMotion: boolean, delayMs?: number) {
   const translateY = useSharedValue(reduceMotion ? 0 : 16);
   const opacity = useSharedValue(reduceMotion ? 1 : 0);
 
-  const staggerDelay = index * 130; // 0, 130, 260, 390 …
+  const staggerDelay = delayMs ?? index * 130; // custom or 0, 130, 260, 390 …
 
   useEffect(() => {
     if (reduceMotion) {

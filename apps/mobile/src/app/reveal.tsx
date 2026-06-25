@@ -4,12 +4,12 @@
  * Full-screen route (no tab bar, no status bar).
  * Receives { entryId, noteIds (JSON), transcript } from navigation params.
  *
- * Layout:
- *  1. "From what you said"  — title (23px, 700, tracking -0.4)
- *  2. Quote block           — verbatim transcript in white card, left cobalt border
- *  3. "Nara made N notes."  — title (23px, 700)
- *  4. N NoteCards           — fadeUp stagger (130ms per card)
- *  5. CTA                   — full-width ink button "See them in your feed"
+ * Layout (pixel-matched to Nara.dc.html REVEAL block):
+ *  1. Eyebrow "From what you said" — 11.5px 600 uppercase faint
+ *  2. Quote block — left cobalt border, italic secondary text
+ *  3. "Nara made N notes." — 25px 700, ink
+ *  4. N NoteCards — fadeUp staggered at 50/180/310/440ms
+ *  5. CTA — full-width ink button, fadeUp at 600ms
  *
  * Data:
  *  - noteIds decoded from JSON string param
@@ -18,29 +18,55 @@
  * Edge cases:
  *  - Empty noteIds → show a graceful empty state
  *  - Individual note fetch failure → skip that card, not a fatal error
- *
- * Spec: docs/CLAUDE_FRONTEND.md § Screen 4 "Reveal"
  */
 
 import { StatusBar, View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from 'react-native';
-import Animated, { FadeIn } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQueries } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { colors, typography, spacing, radius, fontFamily } from '@/theme/tokens';
+import { colors, fontFamily } from '@/theme/tokens';
 import { useReduceMotion } from '@/hooks/useReduceMotion';
 import { useFadeUp } from '@/hooks/animations';
 import { NoteCard } from '@/components/note-card';
 import type { NoteDetail } from '@nara/shared';
 
+// ── Stagger delays (ms) matching Nara.dc.html ───────────────────────────────
+const CARD_DELAYS = [50, 180, 310, 440];
+const CTA_DELAY = 600;
+
 // ── Animated NoteCard wrapper ─────────────────────────────────────────────────
 function AnimatedNoteCard({ note, index }: { note: NoteDetail; index: number }) {
   const { reduceMotion } = useReduceMotion();
-  const fadeUpStyle = useFadeUp(index, reduceMotion);
+  const delayMs = CARD_DELAYS[index] ?? 440 + (index - 3) * 130;
+  const fadeUpStyle = useFadeUp(index, reduceMotion, delayMs);
 
   return (
     <Animated.View style={fadeUpStyle}>
       <NoteCard note={note} />
+    </Animated.View>
+  );
+}
+
+// ── Animated CTA wrapper ─────────────────────────────────────────────────────
+function AnimatedCTA({ onPress, disabled }: { onPress: () => void; disabled: boolean }) {
+  const { reduceMotion } = useReduceMotion();
+  const fadeUpStyle = useFadeUp(0, reduceMotion, CTA_DELAY);
+
+  return (
+    <Animated.View style={fadeUpStyle}>
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => [
+          styles.ctaButton,
+          pressed && { opacity: 0.88 },
+        ]}
+        disabled={disabled}
+        accessibilityRole="button"
+        accessibilityLabel="See notes in your feed"
+      >
+        <Text style={styles.ctaLabel}>See them in your feed</Text>
+      </Pressable>
     </Animated.View>
   );
 }
@@ -100,16 +126,14 @@ export default function RevealScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* ── Heading ─────────────────────────────────────────────── */}
-          <Animated.Text entering={FadeIn} style={styles.heading}>
-            From what you said
-          </Animated.Text>
+          {/* ── Eyebrow ────────────────────────────────────────────── */}
+          <Text style={styles.eyebrow}>From what you said</Text>
 
           {/* ── Quote block ─────────────────────────────────────────── */}
           {!!transcript && (
-            <Animated.View entering={FadeIn.delay(80)} style={styles.quoteBlock}>
+            <View style={styles.quoteBlock}>
               <Text style={styles.quoteText}>{transcript}</Text>
-            </Animated.View>
+            </View>
           )}
 
           {/* ── Loading shimmer ─────────────────────────────────────── */}
@@ -120,43 +144,31 @@ export default function RevealScreen() {
             </View>
           )}
 
-          {/* ── "Nara made N notes." + cards ────────────────────────── */}
+          {/* ── Empty state ────────────────────────────────────────── */}
           {!isLoading && noteIds.length === 0 && (
             <Text style={styles.emptyText}>
               Nara didn't find anything to save from that. Try saying more next time.
             </Text>
           )}
 
+          {/* ── "Nara made N notes." + cards ────────────────────────── */}
           {notes.length > 0 && (
             <>
-              <Animated.Text entering={FadeIn.delay(160)} style={styles.notesHeading}>
+              <Text style={styles.notesHeading}>
                 Nara made {notes.length} {notes.length === 1 ? 'note' : 'notes'}.
-              </Animated.Text>
+              </Text>
 
               <View style={styles.cardsStack}>
                 {notes.map((note, i) => (
                   <AnimatedNoteCard key={note.id} note={note} index={i} />
                 ))}
               </View>
+
+              {/* ── CTA ─────────────────────────────────────────────── */}
+              <AnimatedCTA onPress={handleSeeInFeed} disabled={isLoading} />
             </>
           )}
         </ScrollView>
-
-        {/* ── Full-width CTA ──────────────────────────────────────────── */}
-        <View style={styles.ctaContainer}>
-          <Pressable
-            onPress={handleSeeInFeed}
-            style={({ pressed }) => [
-              styles.ctaButton,
-              pressed && { opacity: 0.88 },
-            ]}
-            disabled={isLoading}
-            accessibilityRole="button"
-            accessibilityLabel="See notes in your feed"
-          >
-            <Text style={styles.ctaLabel}>See them in your feed</Text>
-          </Pressable>
-        </View>
       </View>
     </>
   );
@@ -173,100 +185,90 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingTop: spacing.statusBar,
-    paddingHorizontal: spacing.xl,
-    paddingBottom: spacing.xl,
+    paddingTop: 64,
+    paddingHorizontal: 24,
+    paddingBottom: 122,
   },
 
-  // Heading "From what you said"
-  heading: {
-    fontSize: typography.title.fontSize,
-    fontWeight: '700',
-    color: colors.ink,
+  // Eyebrow "From what you said"
+  eyebrow: {
     fontFamily: fontFamily.grotesk,
-    letterSpacing: typography.title.letterSpacing,
-    lineHeight: typography.title.fontSize * (typography.title.lineHeight ?? 1.15),
-    marginBottom: spacing.xl,
+    fontSize: 11.5,
+    fontWeight: '600',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    color: colors.faint,
+    marginBottom: 12,
   },
 
   // Quote block
   quoteBlock: {
-    backgroundColor: colors.card,
     borderLeftWidth: 2,
-    borderLeftColor: colors.accent, // cobalt #2E50E6
-    borderRadius: radius.card,
-    padding: spacing.lg,
-    marginBottom: spacing.xxl,
+    borderLeftColor: colors.accent,
+    paddingLeft: 15,
+    marginBottom: 28,
   },
   quoteText: {
-    fontSize: typography.voice.fontSize,
-    fontWeight: '400',
-    fontStyle: 'italic',
-    color: colors.body,
     fontFamily: fontFamily.grotesk,
-    lineHeight: typography.voice.fontSize * (typography.voice.lineHeight ?? 1.5),
+    fontStyle: 'italic',
+    fontSize: 15.5,
+    fontWeight: '400',
+    lineHeight: 15.5 * 1.6,
+    color: colors.secondary,
   },
 
   // Loading
   loadingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.xxl,
+    gap: 8,
+    paddingVertical: 36,
     justifyContent: 'center',
   },
   loadingText: {
-    fontSize: typography.meta.fontSize,
-    color: colors.subInk,
     fontFamily: fontFamily.grotesk,
+    fontSize: 11.5,
     fontWeight: '500',
+    color: colors.subInk,
   },
 
   // Empty state
   emptyText: {
-    fontSize: typography.body.fontSize,
-    fontWeight: '500',
-    color: colors.subInk,
     fontFamily: fontFamily.grotesk,
-    lineHeight: typography.body.fontSize * (typography.body.lineHeight ?? 1.45),
-    marginTop: spacing.lg,
+    fontSize: 15,
+    fontWeight: '500',
+    lineHeight: 15 * 1.45,
+    color: colors.subInk,
+    marginTop: 16,
   },
 
   // "Nara made N notes."
   notesHeading: {
-    fontSize: typography.title.fontSize,
-    fontWeight: '700',
-    color: colors.ink,
     fontFamily: fontFamily.grotesk,
-    letterSpacing: typography.title.letterSpacing,
-    lineHeight: typography.title.fontSize * (typography.title.lineHeight ?? 1.15),
-    marginBottom: spacing.lg,
+    fontSize: 25,
+    fontWeight: '700',
+    letterSpacing: -0.6,
+    color: colors.ink,
+    marginBottom: 20,
   },
 
   // Cards
   cardsStack: {
-    gap: 0, // NoteCard itself carries bottom margin
+    gap: 11,
   },
 
   // CTA
-  ctaContainer: {
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.xl + spacing.lg, // safe-area buffer
-    backgroundColor: colors.paper,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border.card as string,
-  },
   ctaButton: {
+    marginTop: 28,
     backgroundColor: colors.ink,
-    borderRadius: radius.card,
-    paddingVertical: spacing.lg,
+    borderRadius: 13,
+    padding: 16,
     alignItems: 'center',
   },
   ctaLabel: {
-    fontSize: typography.body.fontSize,
+    fontFamily: fontFamily.grotesk,
+    fontSize: 15,
     fontWeight: '600',
     color: colors.paper,
-    fontFamily: fontFamily.grotesk,
   },
 });

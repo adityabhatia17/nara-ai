@@ -1,42 +1,29 @@
 /**
  * Note Detail Screen
- * Full note text, Nara context box, append (text) and edit flows.
- * Phase 1: voice append hidden. Tab bar visible (inside tabs navigator).
+ * Pixel-matched to Nara.dc.html NOTE DETAIL block.
+ * Two text action buttons navigate to the editor in edit mode.
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
-  TextInput,
-  KeyboardAvoidingView,
-  Platform,
-  ActivityIndicator,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { formatTimestamp } from '@/lib/format';
-import { colors, typography, spacing, radius, fontFamily } from '@/theme/tokens';
-import { PrimaryButton, SecondaryButton } from '@/components/Button';
-import CategoryPill from '@/components/CategoryPill';
-import type { NoteDetail, AppendNoteRequest, UpdateNoteRequest } from '@nara/shared';
+import { colors, fontFamily, getCategoryColor } from '@/theme/tokens';
+import type { NoteDetail } from '@nara/shared';
 
 export default function NoteDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const queryClient = useQueryClient();
 
-  const [editMode, setEditMode] = useState(false);
-  const [editText, setEditText] = useState('');
-  const [appendOpen, setAppendOpen] = useState(false);
-  const [appendText, setAppendText] = useState('');
-
-  // Fetch note
   const { data: note, isLoading, error } = useQuery({
     queryKey: ['note', id],
     queryFn: async () => {
@@ -46,269 +33,120 @@ export default function NoteDetailScreen() {
     enabled: !!id,
   });
 
-  // Seed edit text when note first loads
-  useEffect(() => {
-    if (note && !editText) setEditText(note.content);
-  }, [note?.id]);
-
-  // Edit mutation (PUT /notes/:id)
-  const updateMutation = useMutation({
-    mutationFn: async (content: string) => {
-      const response = await api.put<NoteDetail>(
-        `/notes/${id}`,
-        { content } satisfies UpdateNoteRequest,
-      );
-      return response.data;
-    },
-    onMutate: async (content) => {
-      await queryClient.cancelQueries({ queryKey: ['note', id] });
-      const previous = queryClient.getQueryData<NoteDetail>(['note', id]);
-      if (previous) {
-        queryClient.setQueryData<NoteDetail>(['note', id], {
-          ...previous,
-          content,
-          updated_at: new Date().toISOString(),
-        });
-      }
-      return { previous };
-    },
-    onError: (_err, _content, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(['note', id], context.previous);
-      }
-    },
-    onSuccess: (updatedNote) => {
-      queryClient.setQueryData(['note', id], updatedNote);
-      setEditText(updatedNote.content);
-      setEditMode(false);
-    },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ['note', id] }),
-  });
-
-  // Append mutation (POST /notes/:id/append)
-  const appendMutation = useMutation({
-    mutationFn: async (text: string) => {
-      const response = await api.post<NoteDetail>(
-        `/notes/${id}/append`,
-        { text } satisfies AppendNoteRequest,
-      );
-      return response.data;
-    },
-    onMutate: async (text) => {
-      await queryClient.cancelQueries({ queryKey: ['note', id] });
-      const previous = queryClient.getQueryData<NoteDetail>(['note', id]);
-      if (previous) {
-        queryClient.setQueryData<NoteDetail>(['note', id], {
-          ...previous,
-          content: `${previous.content}\n\n${text}`,
-          updated_at: new Date().toISOString(),
-        });
-      }
-      return { previous };
-    },
-    onError: (_err, _text, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(['note', id], context.previous);
-      }
-    },
-    onSuccess: (updatedNote) => {
-      queryClient.setQueryData(['note', id], updatedNote);
-      setEditText(updatedNote.content);
-      setAppendOpen(false);
-      setAppendText('');
-    },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ['note', id] }),
-  });
-
-  const handleSaveEdit = useCallback(() => {
-    const trimmed = editText.trim();
-    if (!trimmed || trimmed === note?.content) {
-      setEditMode(false);
-      return;
-    }
-    updateMutation.mutate(trimmed);
-  }, [editText, note?.content]);
-
-  const handleAppend = useCallback(() => {
-    const trimmed = appendText.trim();
-    if (!trimmed) return;
-    appendMutation.mutate(trimmed);
-  }, [appendText]);
-
   // --- Loading ---
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
+      <View style={styles.container}>
         <View style={styles.center}>
           <ActivityIndicator color={colors.accent} size="large" />
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   // --- Error / not found ---
   if (error || !note) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => router.back()}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.backText}>‹ Notes</Text>
-        </TouchableOpacity>
-        <View style={styles.center}>
-          <Text style={styles.errorText}>Note not found</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  const timestamp = formatTimestamp(note.created_at);
-
-  // --- Append inline panel ---
-  if (appendOpen) {
-    return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <KeyboardAvoidingView
-          style={styles.flex}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
-          {/* Header */}
-          <View style={styles.appendHeader}>
-            <Text style={styles.appendTitle}>Add to this note</Text>
-            <TouchableOpacity
-              onPress={() => { setAppendOpen(false); setAppendText(''); }}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.appendCancel}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Input */}
-          <TextInput
-            style={styles.appendInput}
-            value={appendText}
-            onChangeText={setAppendText}
-            multiline
-            placeholder="Add more context…"
-            placeholderTextColor={colors.faint}
-            autoFocus
-            textAlignVertical="top"
-          />
-
-          {/* Save */}
-          <View style={styles.appendFooter}>
-            <PrimaryButton
-              label={appendMutation.isPending ? '' : 'Add'}
-              onPress={handleAppend}
-              disabled={!appendText.trim() || appendMutation.isPending}
-              loading={appendMutation.isPending}
-            />
-          </View>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
-    );
-  }
-
-  // --- Main view ---
-  return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        <ScrollView
-          style={styles.flex}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
-          {/* Back */}
+      <View style={styles.container}>
+        <View style={styles.headerBlock}>
           <TouchableOpacity
-            style={styles.backBtn}
+            style={styles.backRow}
             onPress={() => router.back()}
             activeOpacity={0.85}
           >
-            <Text style={styles.backText}>‹ Notes</Text>
+            <Text style={styles.backChevron}>{'‹'}</Text>
+            <Text style={styles.backLabel}>Notes</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.center}>
+          <Text style={styles.errorText}>Note not found</Text>
+        </View>
+      </View>
+    );
+  }
+
+  const firstCategory = note.categories.length > 0 ? note.categories[0] : null;
+  const catColor = firstCategory ? getCategoryColor(firstCategory.name, 'base') : colors.faint;
+  const catLabel = firstCategory?.name ?? '';
+  const timestamp = formatTimestamp(note.created_at);
+
+  const navigateToEditor = () => {
+    router.push({
+      pathname: '/editor',
+      params: { noteId: id, initialContent: note.content },
+    });
+  };
+
+  return (
+    <View style={styles.container}>
+      {/* Header: back button */}
+      <View style={styles.headerBlock}>
+        <TouchableOpacity
+          style={styles.backRow}
+          onPress={() => router.back()}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.backChevron}>{'‹'}</Text>
+          <Text style={styles.backLabel}>Notes</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Scrollable body */}
+      <ScrollView
+        style={styles.flex}
+        contentContainerStyle={styles.body}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Meta row: category dot + label + spacer + time */}
+        <View style={styles.metaRow}>
+          {firstCategory && (
+            <>
+              <View style={[styles.categoryDot, { backgroundColor: catColor }]} />
+              <Text style={[styles.categoryLabel, { color: catColor }]}>
+                {catLabel}
+              </Text>
+            </>
+          )}
+          <View style={styles.spacer} />
+          <Text style={styles.timestamp}>{timestamp}</Text>
+        </View>
+
+        {/* Note text */}
+        <Text style={styles.noteText}>{note.content}</Text>
+
+        {/* Context box */}
+        <View style={styles.contextBox}>
+          {/* Nara mark: 20x20 ink square with 6x6 cobalt circle */}
+          <View style={styles.naraMark}>
+            <View style={styles.naraMarkDot} />
+          </View>
+          <Text style={styles.contextText}>
+            Filed to your {catLabel} thread. Add to it any time.
+          </Text>
+        </View>
+
+        {/* Action buttons */}
+        <View style={styles.actionRow}>
+          <TouchableOpacity
+            style={styles.primaryBtn}
+            onPress={navigateToEditor}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.primaryBtnText}>Add to note</Text>
           </TouchableOpacity>
 
-          {/* Metadata row */}
-          <View style={styles.metaRow}>
-            {note.categories.length > 0 && (
-              <CategoryPill name={note.categories[0].name} />
-            )}
-            <Text style={styles.timestamp}>{timestamp}</Text>
-          </View>
-
-          {/* Note body — editable or read-only */}
-          {editMode ? (
-            <TextInput
-              style={styles.editInput}
-              value={editText}
-              onChangeText={setEditText}
-              multiline
-              textAlignVertical="top"
-              placeholder="Note content"
-              placeholderTextColor={colors.faint}
-              autoFocus
-            />
-          ) : (
-            <Text style={styles.noteContent}>{note.content}</Text>
-          )}
-
-          {/* Nara context box */}
-          {!!note.nara_context && (
-            <View style={styles.contextBox}>
-              <Text style={styles.contextText}>{note.nara_context}</Text>
-            </View>
-          )}
-
-          {/* Actions */}
-          <View style={styles.actions}>
-            {editMode ? (
-              <View style={styles.editActions}>
-                <SecondaryButton
-                  label="Cancel"
-                  onPress={() => {
-                    setEditMode(false);
-                    setEditText(note.content);
-                  }}
-                  style={styles.actionHalf}
-                />
-                <PrimaryButton
-                  label="Save"
-                  onPress={handleSaveEdit}
-                  disabled={!editText.trim() || editText.trim() === note.content}
-                  loading={updateMutation.isPending}
-                  style={styles.actionHalf}
-                />
-              </View>
-            ) : (
-              <View style={styles.normalActions}>
-                <PrimaryButton
-                  label="Add to this note"
-                  onPress={() => setAppendOpen(true)}
-                />
-                <SecondaryButton
-                  label="Edit"
-                  onPress={() => {
-                    setEditText(note.content);
-                    setEditMode(true);
-                  }}
-                />
-              </View>
-            )}
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+          <TouchableOpacity
+            style={styles.secondaryBtn}
+            onPress={navigateToEditor}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.secondaryBtnText}>Edit</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </View>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Styles
-// ---------------------------------------------------------------------------
 
 const styles = StyleSheet.create({
   container: {
@@ -323,143 +161,151 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  scrollContent: {
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.tabBar,
-  },
-
-  // Back button
-  backBtn: {
-    marginBottom: spacing.lg,
-  },
-  backText: {
-    fontSize: typography.meta.fontSize,
-    fontWeight: typography.meta.fontWeight as any,
-    color: colors.subInk,
+  errorText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: colors.ink,
     fontFamily: fontFamily.grotesk,
   },
 
-  // Metadata row
+  /* Header: padding 58 top, 24 horizontal, 10 bottom */
+  headerBlock: {
+    paddingTop: 58,
+    paddingHorizontal: 24,
+    paddingBottom: 10,
+  },
+  backRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  backChevron: {
+    fontFamily: fontFamily.grotesk,
+    fontSize: 19,
+    color: '#6A6E73',
+    lineHeight: 19,
+  },
+  backLabel: {
+    fontFamily: fontFamily.grotesk,
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#6A6E73',
+  },
+
+  /* Body: padding 18 top, 24 horizontal, 122 bottom */
+  body: {
+    paddingTop: 18,
+    paddingHorizontal: 24,
+    paddingBottom: 122,
+  },
+
+  /* Meta row */
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.lg,
+    gap: 8,
+    marginBottom: 18,
+  },
+  categoryDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 2,
+  },
+  categoryLabel: {
+    fontFamily: fontFamily.grotesk,
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+  },
+  spacer: {
+    flex: 1,
   },
   timestamp: {
-    fontSize: typography.meta.fontSize,
-    fontWeight: typography.meta.fontWeight as any,
-    color: colors.faint,
     fontFamily: fontFamily.grotesk,
+    fontSize: 12.5,
+    color: '#9A9DA1',
   },
 
-  // Note body
-  noteContent: {
-    fontSize: typography.body.fontSize,
-    fontWeight: typography.body.fontWeight as any,
-    lineHeight: typography.body.lineHeight as any,
-    color: colors.body,
+  /* Note text */
+  noteText: {
     fontFamily: fontFamily.grotesk,
-    marginBottom: spacing.xl,
+    fontSize: 23,
+    fontWeight: '600',
+    lineHeight: 23 * 1.42,
+    letterSpacing: -0.4,
+    color: '#18191B',
   },
 
-  // Edit input
-  editInput: {
-    fontSize: typography.body.fontSize,
-    fontWeight: typography.body.fontWeight as any,
-    lineHeight: typography.body.lineHeight as any,
-    color: colors.body,
-    fontFamily: fontFamily.grotesk,
-    backgroundColor: colors.card,
-    borderRadius: radius.card,
-    borderWidth: 1,
-    borderColor: colors.border.interactive,
-    padding: spacing.lg,
-    minHeight: 140,
-    marginBottom: spacing.xl,
-  },
-
-  // Nara context box — white card with 2px cobalt left border
+  /* Context box */
   contextBox: {
-    backgroundColor: colors.card,
-    borderRadius: radius.card,
-    borderWidth: 1,
-    borderColor: colors.border.card,
-    borderLeftWidth: 2,
-    borderLeftColor: colors.accent,
-    paddingVertical: spacing.lg,
-    paddingLeft: spacing.lg,
-    paddingRight: spacing.lg,
-    marginBottom: spacing.xl,
+    marginTop: 24,
+    backgroundColor: 'rgba(46,80,230,0.06)',
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    gap: 11,
+    alignItems: 'flex-start',
+  },
+  naraMark: {
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    backgroundColor: '#18191B',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  naraMarkDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#2E50E6',
   },
   contextText: {
-    fontSize: typography.voice.fontSize,
-    fontStyle: 'italic',
-    fontWeight: typography.voice.fontWeight as any,
-    lineHeight: typography.voice.lineHeight as any,
-    color: colors.subInk,
-    fontFamily: fontFamily.grotesk,
-  },
-
-  // Actions
-  actions: {
-    marginTop: spacing.sm,
-  },
-  normalActions: {
-    gap: spacing.md,
-  },
-  editActions: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  actionHalf: {
     flex: 1,
-  },
-
-  // Error
-  errorText: {
-    fontSize: typography.body.fontSize,
-    fontWeight: typography.body.fontWeight as any,
-    color: colors.ink,
     fontFamily: fontFamily.grotesk,
+    fontSize: 14,
+    fontWeight: '400',
+    lineHeight: 14 * 1.5,
+    color: '#4D5560',
   },
 
-  // Append panel
-  appendHeader: {
+  /* Action row */
+  actionRow: {
+    marginTop: 22,
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: 10,
+  },
+  primaryBtn: {
+    flex: 1,
+    backgroundColor: '#18191B',
+    borderRadius: 12,
+    paddingVertical: 14,
     alignItems: 'center',
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.card,
+    justifyContent: 'center',
   },
-  appendTitle: {
-    fontSize: typography.body.fontSize,
-    fontWeight: '600' as any,
-    color: colors.ink,
+  primaryBtnText: {
     fontFamily: fontFamily.grotesk,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#F3F3F1',
   },
-  appendCancel: {
-    fontSize: typography.body.fontSize,
-    fontWeight: typography.body.fontWeight as any,
-    color: colors.accent,
-    fontFamily: fontFamily.grotesk,
-  },
-  appendInput: {
+  secondaryBtn: {
     flex: 1,
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.lg,
-    fontSize: typography.body.fontSize,
-    fontWeight: typography.body.fontWeight as any,
-    color: colors.body,
-    fontFamily: fontFamily.grotesk,
-    lineHeight: typography.body.lineHeight as any,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: 'rgba(20,22,24,0.12)',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  appendFooter: {
-    paddingHorizontal: spacing.xl,
-    paddingBottom: spacing.tabBar,
-    paddingTop: spacing.md,
+  secondaryBtnText: {
+    fontFamily: fontFamily.grotesk,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#4D5560',
   },
 });

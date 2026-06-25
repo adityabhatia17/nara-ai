@@ -6,8 +6,6 @@
 
 import { create } from 'zustand';
 
-export type RecordingState = 'idle' | 'listening' | 'processing';
-
 export interface FeedFilters {
   view: 'time' | 'category' | 'person';
   categoryId?: string;
@@ -17,12 +15,6 @@ export interface FeedFilters {
 }
 
 interface AppStore {
-  // Recording flow
-  recordingState: RecordingState;
-  recordingElapsed: number; // milliseconds
-  setRecordingState: (state: RecordingState) => void;
-  setRecordingElapsed: (ms: number) => void;
-
   // Feed filters
   feedFilters: FeedFilters;
   setFeedFilters: (filters: Partial<FeedFilters>) => void;
@@ -36,11 +28,6 @@ interface AppStore {
 const initialFeedFilters: FeedFilters = { view: 'time' };
 
 export const useAppStore = create<AppStore>((set) => ({
-  recordingState: 'idle',
-  recordingElapsed: 0,
-  setRecordingState: (state) => set({ recordingState: state }),
-  setRecordingElapsed: (ms) => set({ recordingElapsed: ms }),
-
   feedFilters: initialFeedFilters,
   setFeedFilters: (filters) =>
     set((state) => ({

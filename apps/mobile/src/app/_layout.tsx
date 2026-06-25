@@ -145,14 +145,6 @@ export default function RootLayout() {
 
             {/* Full-screen flow screens (no tab bar) */}
             <Stack.Screen
-              name="listening"
-              options={{ headerShown: false, presentation: 'fullScreenModal' }}
-            />
-            <Stack.Screen
-              name="processing"
-              options={{ headerShown: false, presentation: 'fullScreenModal' }}
-            />
-            <Stack.Screen
               name="reveal"
               options={{ headerShown: false, presentation: 'fullScreenModal' }}
             />

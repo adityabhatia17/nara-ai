@@ -57,8 +57,7 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     gap: 7,
-    paddingHorizontal: 24,
-    paddingBottom: 4,
+    paddingBottom: 0,
   },
   pill: {
     paddingHorizontal: 15,
@@ -68,7 +67,7 @@ const styles = StyleSheet.create({
   },
   pillActive: {
     backgroundColor: '#FFFFFF',
-    borderColor: 'rgba(20,22,24,0.1)',
+    borderColor: 'rgba(20,22,24,0.12)',
   },
   pillInactive: {
     backgroundColor: 'transparent',

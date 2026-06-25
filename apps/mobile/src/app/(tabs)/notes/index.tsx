@@ -12,13 +12,12 @@ import {
   ActivityIndicator,
   ListRenderItemInfo,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useAppStore } from '@/store/app';
 import { api } from '@/lib/api';
 import { formatSectionDate } from '@/lib/format';
-import { colors, typography, spacing, fontFamily } from '@/theme/tokens';
+import { colors, fontFamily } from '@/theme/tokens';
 import FilterTabs from '@/components/FilterTabs';
 import { NoteCard } from '@/components/note-card';
 import SectionHeader from '@/components/SectionHeader';
@@ -83,43 +82,47 @@ export default function FeedScreen() {
     setFeedFilters({ view: filter });
   };
 
-  const renderItem = ({ item }: ListRenderItemInfo<FeedItem>) => {
+  const renderItem = ({ item, index }: ListRenderItemInfo<FeedItem>) => {
     if (item.type === 'section') {
       return <SectionHeader title={item.title ?? ''} />;
     }
+    // Gap 10 between consecutive NoteCards
+    const nextItem = feedItems[index + 1];
+    const needsGap = nextItem && nextItem.type === 'note';
     return (
-      <NoteCard
-        note={item.note!}
-        onPress={() => router.push(`/(tabs)/notes/${item.note!.id}`)}
-      />
+      <View style={styles.cardWrapper}>
+        <NoteCard
+          note={item.note!}
+          onPress={() => router.push(`/(tabs)/notes/${item.note!.id}`)}
+          style={needsGap ? { marginBottom: 10 } : undefined}
+        />
+      </View>
     );
   };
 
   if (error) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.header}>
+      <View style={styles.container}>
+        <View style={styles.headerBlock}>
           <Text style={styles.title}>Your notes</Text>
         </View>
         <View style={styles.center}>
           <Text style={styles.errorText}>Failed to load notes</Text>
           <Text style={styles.errorSub}>{(error as Error).message}</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <View style={styles.container}>
       <FlatList
         data={feedItems}
         renderItem={renderItem}
         keyExtractor={(item) => item.id}
         ListHeaderComponent={
-          <View>
-            <View style={styles.header}>
-              <Text style={styles.title}>Your notes</Text>
-            </View>
+          <View style={styles.headerBlock}>
+            <Text style={styles.title}>Your notes</Text>
             <FilterTabs
               activeFilter={activeFilter}
               onFilterChange={handleFilterChange}
@@ -158,7 +161,7 @@ export default function FeedScreen() {
           <NoteCardSkeleton />
         </View>
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -218,13 +221,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.paper,
   },
-  listContent: {
-    paddingBottom: spacing.tabBar,
-  },
-  header: {
+  /* Header block: paddingTop 60, horizontal 24, bottom 4 */
+  headerBlock: {
+    paddingTop: 60,
     paddingHorizontal: 24,
-    paddingTop: 0,
-    paddingBottom: 16,
+    paddingBottom: 4,
   },
   title: {
     fontFamily: fontFamily.grotesk,
@@ -232,46 +233,53 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: -0.8,
     color: '#18191B',
+    marginBottom: 16,
+  },
+  /* Scroll body: bottom 122. Horizontal padding is on individual items. */
+  listContent: {
+    paddingBottom: 122,
+  },
+  cardWrapper: {
+    paddingHorizontal: 24,
   },
   center: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: spacing.xl,
-    gap: spacing.sm,
+    paddingHorizontal: 24,
+    gap: 8,
   },
   errorText: {
-    fontSize: typography.body.fontSize,
-    fontWeight: typography.body.fontWeight as any,
+    fontSize: 15,
+    fontWeight: '500',
     color: colors.ink,
     fontFamily: fontFamily.grotesk,
   },
   errorSub: {
-    fontSize: typography.meta.fontSize,
+    fontSize: 11.5,
     color: colors.faint,
     fontFamily: fontFamily.grotesk,
   },
   empty: {
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.xxl,
+    paddingVertical: 36,
     alignItems: 'center',
   },
   emptyText: {
-    fontSize: typography.body.fontSize,
-    fontWeight: typography.body.fontWeight as any,
+    fontSize: 15,
+    fontWeight: '500',
     color: colors.faint,
     textAlign: 'center',
-    lineHeight: typography.body.lineHeight as any,
+    lineHeight: 15 * 1.45,
     fontFamily: fontFamily.grotesk,
   },
   footerLoader: {
-    paddingVertical: spacing.xl,
+    paddingVertical: 24,
     alignItems: 'center',
   },
   skeletonContainer: {
     ...(StyleSheet.absoluteFill as object),
     paddingHorizontal: 24,
-    paddingTop: 120,
+    paddingTop: 140,
     gap: 10,
     backgroundColor: colors.paper,
   },

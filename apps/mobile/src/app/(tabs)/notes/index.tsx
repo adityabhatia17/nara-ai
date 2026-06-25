@@ -20,7 +20,7 @@ import { api } from '@/lib/api';
 import { formatSectionDate } from '@/lib/format';
 import { colors, typography, spacing, fontFamily } from '@/theme/tokens';
 import FilterTabs from '@/components/FilterTabs';
-import NoteCard from '@/components/NoteCard';
+import { NoteCard } from '@/components/note-card';
 import SectionHeader from '@/components/SectionHeader';
 import { NoteCardSkeleton } from '@/components/NoteCardSkeleton';
 import type { Note, NotesListResponse } from '@nara/shared';

@@ -23,7 +23,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import Animated from 'react-native-reanimated';
 import { useReducedMotion } from 'react-native-reanimated';
@@ -160,6 +160,18 @@ export default function HomeScreen() {
       return res.data;
     },
   });
+
+  // Notes are created asynchronously by the worker a couple seconds after
+  // POST /entries, and tab screens stay mounted — so refetch the lists whenever
+  // Home regains focus, otherwise the cache stays stale and new notes never show.
+  const refetchNotes = notesQuery.refetch;
+  const refetchNudges = nudgesQuery.refetch;
+  useFocusEffect(
+    useCallback(() => {
+      refetchNotes();
+      refetchNudges();
+    }, [refetchNotes, refetchNudges])
+  );
 
   // -- Derived state
   const displayName = meQuery.data?.display_name ?? null;

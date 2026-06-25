@@ -3,7 +3,7 @@
  * "Your notes" grouped by Time / Category / Person with infinite scroll.
  */
 
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,9 +11,10 @@ import {
   FlatList,
   ActivityIndicator,
   ListRenderItemInfo,
+  RefreshControl,
 } from 'react-native';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useAppStore } from '@/store/app';
 import { api } from '@/lib/api';
 import { formatSectionDate } from '@/lib/format';
@@ -45,6 +46,8 @@ export default function FeedScreen() {
     hasNextPage,
     isFetchingNextPage,
     isLoading,
+    isRefetching,
+    refetch,
     error,
   } = useInfiniteQuery({
     queryKey: ['notes', feedFilters],
@@ -60,6 +63,15 @@ export default function FeedScreen() {
     getNextPageParam: (last) => last.next_cursor ?? undefined,
     initialPageParam: undefined as string | undefined,
   });
+
+  // Notes are created asynchronously by the worker shortly after POST /entries,
+  // and tab screens stay mounted — refetch whenever the feed regains focus so
+  // newly-created notes appear without a manual reload.
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch])
+  );
 
   // Flatten all pages into one list, then group into sections locally
   const feedItems = useMemo((): FeedItem[] => {
@@ -151,6 +163,14 @@ export default function FeedScreen() {
         }
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefetching && !isFetchingNextPage}
+            onRefresh={refetch}
+            tintColor={colors.accent}
+            colors={[colors.accent]}
+          />
+        }
       />
 
       {isLoading && (

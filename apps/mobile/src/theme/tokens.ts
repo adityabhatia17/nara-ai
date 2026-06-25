@@ -13,7 +13,8 @@ export const colors = {
 
   // Text hierarchy
   body: '#26282B',         // Note body text
-  subInk: '#4D5560',       // Secondary text, subtitles
+  secondary: '#6A6E73',    // Back chevrons, "Notes" label, subtitles
+  subInk: '#4D5560',       // Note-detail context box text
   faint: '#9A9DA1',        // Metadata, timestamps, disabled
   inactive: '#A8ABAE',     // Disabled state fallback
 
@@ -44,7 +45,7 @@ export const colors = {
   // Borders
   border: {
     card: 'rgba(20,22,24,0.07)',        // Hairline on white
-    interactive: 'rgba(20,22,24,0.10)', // Slightly heavier for active states
+    interactive: 'rgba(20,22,24,0.12)', // Slightly heavier for active states
   },
 
   // Shadows

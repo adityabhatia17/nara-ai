@@ -100,7 +100,7 @@ function PeopleIcon({ color }: { color: ColorValue }) {
       <View
         style={[
           peopleStyles.circleOverlap,
-          { borderColor: color, backgroundColor: 'rgba(243,243,241,0.85)' },
+          { borderColor: color, backgroundColor: '#F3F3F1' },
         ]}
       />
     </View>
@@ -136,7 +136,7 @@ export default function TabsLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: styles.tabBar,
-        tabBarActiveTintColor: colors.ink,
+        tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: '#A8ABAE',
         tabBarLabelStyle: styles.tabBarLabel,
         tabBarItemStyle: styles.tabBarItem,

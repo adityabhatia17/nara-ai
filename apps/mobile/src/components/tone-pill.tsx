@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { colors, typography, radius, spacing } from '@/theme/tokens';
+import { radius, fontFamily } from '@/theme/tokens';
 import { Tone } from '@nara/shared';
 
 export interface TonePillProps {
@@ -55,15 +55,14 @@ export function TonePill({ tone }: TonePillProps) {
 
 const styles = StyleSheet.create({
   pill: {
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    paddingHorizontal: 9,
     borderRadius: radius.pill,
     alignSelf: 'flex-start',
   },
   label: {
-    fontSize: typography.label.fontSize,
+    fontFamily: fontFamily.grotesk,
+    fontSize: 11,
     fontWeight: '600',
-    letterSpacing: typography.label.letterSpacing,
-    textTransform: 'uppercase',
   },
 });

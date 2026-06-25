@@ -2,13 +2,11 @@
  * Person Detail Screen — People > [id]
  * Full timeline of notes mentioning this person with tone indicators.
  *
- * Layout:
- * - "‹ People" back nav (meta, subInk)
- * - 78px rounded-square avatar + name (display 700) + mention count (meta, faint)
- * - Timeline FlatList:
- *   - Absolute 1.5px vertical connector line
- *   - Per entry: colored dot (10px circle) at line, date eyebrow, TonePill, note body
- *   - Tap entry → /notes/[note_id]
+ * Layout (from Nara.dc.html PERSON block):
+ * - "‹ People" back nav
+ * - 54px rounded-square avatar + name (26px 700) + mention count
+ * - Summary box (person-tinted bg)
+ * - Timeline with vertical connector, tone dots, date eyebrows, tone pills
  */
 
 import React from 'react';
@@ -16,18 +14,14 @@ import {
   View,
   Text,
   StyleSheet,
-  FlatList,
+  ScrollView,
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import {
   colors,
-  typography,
-  spacing,
-  radius,
   getCategoryColor,
   fontFamily,
 } from '@/theme/tokens';
@@ -37,22 +31,18 @@ import { TonePill } from '@/components/tone-pill';
 
 // ─── Tone colour mapping ──────────────────────────────────────────────────────
 
-const TONE_DOT_COLOR: Record<string, string> = {
-  positive: '#1B9C77',
-  neutral: '#9A9DA1',
-  negative: '#D24E6E',
+const TONE_COLORS: Record<string, { color: string; tint: string }> = {
+  positive: { color: '#1B9C77', tint: '#D7F0E7' },
+  neutral: { color: '#9A9DA1', tint: '#E9E9E9' },
+  negative: { color: '#D24E6E', tint: '#F8E2E8' },
 };
 
 function toneColor(tone: string): string {
-  return TONE_DOT_COLOR[tone] ?? TONE_DOT_COLOR.neutral;
+  return TONE_COLORS[tone]?.color ?? TONE_COLORS.neutral.color;
 }
 
 // ─── Date label helper ────────────────────────────────────────────────────────
 
-/**
- * Produces an eyebrow-style label for a date:
- *   Today / Yesterday / Last week / Two weeks ago / Mid-month / Month name Year
- */
 function formatDateLabel(dateString: string): string {
   const date = new Date(dateString);
   const now = new Date();
@@ -68,7 +58,6 @@ function formatDateLabel(dateString: string): string {
   if (diffDays < 7) return 'Last week';
   if (diffDays < 14) return 'Two weeks ago';
 
-  // Same month: "Early / Mid / Late month"
   if (
     date.getFullYear() === now.getFullYear() &&
     date.getMonth() === now.getMonth()
@@ -79,7 +68,6 @@ function formatDateLabel(dateString: string): string {
     return 'Late this month';
   }
 
-  // Older: "June 2026"
   return date.toLocaleDateString('en-US', {
     month: 'long',
     year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
@@ -90,45 +78,35 @@ function formatDateLabel(dateString: string): string {
 
 interface TimelineEntryProps {
   item: EntityTimelineItem;
-  isLast: boolean;
   onPress: () => void;
 }
 
-function TimelineEntry({ item, isLast, onPress }: TimelineEntryProps) {
+function TimelineEntry({ item, onPress }: TimelineEntryProps) {
   const dotColor = toneColor(item.tone);
-  const BODY_LINE_HEIGHT = typography.body.fontSize * (typography.body.lineHeight as number);
 
   return (
     <TouchableOpacity
-      style={styles.entryRow}
+      style={styles.timelineItem}
       onPress={onPress}
       activeOpacity={0.85}
     >
-      {/* Left gutter: vertical line + dot */}
-      <View style={styles.gutter}>
-        {/* Line — full height, faint */}
-        {!isLast && <View style={styles.connectorLine} />}
-        {/* Dot — 10px circle, tone-colored */}
-        <View style={[styles.dot, { backgroundColor: dotColor }]} />
-      </View>
+      {/* Dot on the vertical connector */}
+      <View
+        style={[styles.timelineDot, { backgroundColor: dotColor }]}
+      />
 
-      {/* Entry content */}
-      <View style={styles.entryContent}>
-        {/* Date eyebrow */}
+      {/* Date + tone pill row */}
+      <View style={styles.timelineMetaRow}>
         <Text style={styles.dateLabel}>
           {formatDateLabel(item.date)}
         </Text>
-
-        {/* Tone pill */}
         <TonePill tone={item.tone} />
-
-        {/* Note body */}
-        <Text
-          style={[styles.noteText, { lineHeight: BODY_LINE_HEIGHT }]}
-        >
-          {item.content}
-        </Text>
       </View>
+
+      {/* Note text */}
+      <Text style={styles.noteText}>
+        {item.content}
+      </Text>
     </TouchableOpacity>
   );
 }
@@ -150,18 +128,18 @@ export default function PersonDetailScreen() {
   });
 
   const initial = person?.name.charAt(0).toUpperCase() ?? '?';
-  const avatarBg = getCategoryColor('person', 'tint');
-  const avatarColor = getCategoryColor('person', 'base');
+  const personBase = getCategoryColor('person', 'base');
+  const personTint = getCategoryColor('person', 'tint');
 
   // ─── Loading ─────────────────────────────────────────────────────────────
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      <View style={styles.container}>
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color={colors.accent} />
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -169,49 +147,57 @@ export default function PersonDetailScreen() {
 
   if (error || !person) {
     return (
-      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-        <TouchableOpacity style={styles.backNav} onPress={() => router.back()}>
-          <Text style={styles.backNavText}>‹ People</Text>
-        </TouchableOpacity>
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backRow}
+            onPress={() => router.back()}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={styles.backChevron}>‹</Text>
+            <Text style={styles.backLabel}>People</Text>
+          </TouchableOpacity>
+        </View>
         <View style={styles.centerContainer}>
           <Text style={styles.errorText}>Couldn't load person details.</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   // ─── Layout ──────────────────────────────────────────────────────────────
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-      {/* Back nav */}
-      <TouchableOpacity
-        style={styles.backNav}
-        onPress={() => router.back()}
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-      >
-        <Text style={styles.backNavText}>‹ People</Text>
-      </TouchableOpacity>
+    <View style={styles.container}>
+      {/* Header block */}
+      <View style={styles.header}>
+        {/* Back row */}
+        <TouchableOpacity
+          style={styles.backRow}
+          onPress={() => router.back()}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Text style={styles.backChevron}>‹</Text>
+          <Text style={styles.backLabel}>People</Text>
+        </TouchableOpacity>
 
-      {/* Person header */}
-      <View style={styles.personHeader}>
-        <View style={[styles.avatar, { backgroundColor: avatarBg }]}>
-          <Text style={[styles.avatarInitial, { color: avatarColor }]}>
-            {initial}
-          </Text>
-        </View>
-        <View style={styles.personMeta}>
-          <Text style={styles.personName}>{person.name}</Text>
-          <Text style={styles.personCount}>
-            {person.mention_count} mention{person.mention_count !== 1 ? 's' : ''}
-          </Text>
+        {/* Identity row */}
+        <View style={styles.identityRow}>
+          <View style={[styles.avatar, { backgroundColor: personTint }]}>
+            <Text style={[styles.avatarInitial, { color: personBase }]}>
+              {initial}
+            </Text>
+          </View>
+          <View style={styles.identityText}>
+            <Text style={styles.personName}>{person.name}</Text>
+            <Text style={styles.personMeta}>
+              Mentioned {person.mention_count} time{person.mention_count !== 1 ? 's' : ''} this month
+            </Text>
+          </View>
         </View>
       </View>
 
-      {/* Divider */}
-      <View style={styles.divider} />
-
-      {/* Timeline */}
+      {/* Body */}
       {person.timeline.length === 0 ? (
         <View style={styles.centerContainer}>
           <Text style={styles.emptyText}>
@@ -219,29 +205,39 @@ export default function PersonDetailScreen() {
           </Text>
         </View>
       ) : (
-        <FlatList<EntityTimelineItem>
-          data={person.timeline}
-          keyExtractor={(item, index) => `${item.note_id}-${index}`}
-          renderItem={({ item, index }) => (
-            <TimelineEntry
-              item={item}
-              isLast={index === person.timeline.length - 1}
-              onPress={() => router.push(`/notes/${item.note_id}`)}
-            />
-          )}
-          contentContainerStyle={styles.timelineContainer}
+        <ScrollView
+          contentContainerStyle={styles.bodyContent}
           showsVerticalScrollIndicator={false}
-        />
+        >
+          {/* Summary box */}
+          <View style={[styles.summaryBox, { backgroundColor: 'rgba(27,156,119,0.1)' }]}>
+            <Text style={[styles.summaryText, { color: personBase }]}>
+              {person.timeline.length} mention{person.timeline.length !== 1 ? 's' : ''} across your notes.
+            </Text>
+          </View>
+
+          {/* Timeline wrapper with vertical connector */}
+          <View style={styles.timelineWrapper}>
+            {/* Vertical connector line */}
+            <View style={styles.connectorLine} />
+
+            {person.timeline.map((item, index) => (
+              <TimelineEntry
+                key={`${item.note_id}-${index}`}
+                item={item}
+                onPress={() => router.push(`/notes/${item.note_id}`)}
+              />
+            ))}
+          </View>
+        </ScrollView>
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
-const DOT_SIZE = 10;
-const LINE_WIDTH = 1.5;
-const GUTTER_WIDTH = 28; // dot (10) + gap to content
+const DOT_SIZE = 11;
 
 const styles = StyleSheet.create({
   container: {
@@ -249,134 +245,155 @@ const styles = StyleSheet.create({
     backgroundColor: colors.paper,
   },
 
-  // ─── Back nav ────────────────────────────────────────────────────────────
-  backNav: {
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.sm,
+  // ─── Header ─────────────────────────────────────────────────────────────
+  header: {
+    paddingTop: 58,
+    paddingHorizontal: 24,
+    paddingBottom: 8,
   },
-  backNavText: {
-    fontFamily: fontFamily.grotesk,
-    fontSize: typography.meta.fontSize,
-    fontWeight: '500',
-    color: colors.subInk,
-  },
-
-  // ─── Person header ────────────────────────────────────────────────────────
-  personHeader: {
+  backRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.lg,
-    gap: spacing.lg,
+    gap: 5,
+    marginBottom: 16,
+    alignSelf: 'flex-start',
+  },
+  backChevron: {
+    fontFamily: fontFamily.grotesk,
+    fontSize: 19,
+    color: '#6A6E73',
+    lineHeight: 19,
+  },
+  backLabel: {
+    fontFamily: fontFamily.grotesk,
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#6A6E73',
+  },
+
+  // ─── Identity ───────────────────────────────────────────────────────────
+  identityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  identityText: {
+    flex: 1,
   },
   avatar: {
-    width: 78,
-    height: 78,
-    borderRadius: radius.avatar,
+    width: 54,
+    height: 54,
+    borderRadius: 15,
     justifyContent: 'center',
     alignItems: 'center',
   },
   avatarInitial: {
     fontFamily: fontFamily.grotesk,
-    fontSize: 32,
-    fontWeight: '700',
-    letterSpacing: -0.9,
-  },
-  personMeta: {
-    flex: 1,
-    gap: spacing.xs,
+    fontSize: 24,
+    fontWeight: '600',
   },
   personName: {
     fontFamily: fontFamily.grotesk,
-    fontSize: typography.display.fontSize,
+    fontSize: 26,
     fontWeight: '700',
-    letterSpacing: typography.display.letterSpacing,
-    color: colors.ink,
+    letterSpacing: -0.6,
+    color: '#18191B',
   },
-  personCount: {
+  personMeta: {
     fontFamily: fontFamily.grotesk,
-    fontSize: typography.meta.fontSize,
+    fontSize: 13,
+    fontWeight: '400',
+    color: '#9A9DA1',
+    marginTop: 2,
+  },
+
+  // ─── Body ───────────────────────────────────────────────────────────────
+  bodyContent: {
+    paddingTop: 22,
+    paddingHorizontal: 24,
+    paddingBottom: 122,
+  },
+
+  // ─── Summary box ────────────────────────────────────────────────────────
+  summaryBox: {
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginBottom: 24,
+  },
+  summaryText: {
+    fontFamily: fontFamily.grotesk,
+    fontSize: 14.5,
     fontWeight: '500',
-    color: colors.faint,
+    lineHeight: 14.5 * 1.5,
   },
 
-  divider: {
-    height: 1,
-    backgroundColor: colors.border.card,
-    marginHorizontal: spacing.xl,
-    marginBottom: spacing.lg,
-  },
-
-  // ─── Timeline ─────────────────────────────────────────────────────────────
-  timelineContainer: {
-    paddingHorizontal: spacing.xl,
-    paddingBottom: spacing.tabBar,
-  },
-  entryRow: {
-    flexDirection: 'row',
-    marginBottom: spacing.xxl,
-  },
-
-  // Left gutter: holds dot and vertical line
-  gutter: {
-    width: GUTTER_WIDTH,
-    alignItems: 'center',
+  // ─── Timeline ───────────────────────────────────────────────────────────
+  timelineWrapper: {
     position: 'relative',
-    marginRight: spacing.lg,
+    paddingLeft: 24,
   },
   connectorLine: {
     position: 'absolute',
-    top: DOT_SIZE + 4,
-    bottom: -spacing.xxl, // extends to next entry's dot
-    width: LINE_WIDTH,
-    backgroundColor: colors.faint,
-    opacity: 0.3,
+    left: 5,
+    top: 6,
+    bottom: 6,
+    width: 1.5,
+    backgroundColor: 'rgba(20,22,24,0.1)',
   },
-  dot: {
+  timelineItem: {
+    position: 'relative',
+    marginBottom: 24,
+  },
+  timelineDot: {
+    position: 'absolute',
+    left: -23,
+    top: 4,
     width: DOT_SIZE,
     height: DOT_SIZE,
-    borderRadius: DOT_SIZE / 2, // perfect circle
-    marginTop: 2, // optical align with date eyebrow
+    borderRadius: DOT_SIZE / 2,
+    borderWidth: 2.5,
+    borderColor: '#F3F3F1',
   },
-
-  // Entry text block
-  entryContent: {
-    flex: 1,
-    gap: spacing.sm,
+  timelineMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    marginBottom: 6,
   },
   dateLabel: {
     fontFamily: fontFamily.grotesk,
-    fontSize: typography.eyebrow.fontSize,
+    fontSize: 11.5,
     fontWeight: '600',
-    letterSpacing: typography.eyebrow.letterSpacing,
+    letterSpacing: 0.4,
     textTransform: 'uppercase',
-    color: colors.faint,
+    color: '#9A9DA1',
   },
   noteText: {
     fontFamily: fontFamily.grotesk,
-    fontSize: typography.body.fontSize,
+    fontSize: 15.5,
     fontWeight: '500',
-    color: colors.body,
+    lineHeight: 15.5 * 1.45,
+    color: '#26282B',
   },
 
-  // ─── Utility states ────────────────────────────────────────────────────────
+  // ─── Utility states ────────────────────────────────────────────────────
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: spacing.xl,
+    paddingHorizontal: 24,
   },
   emptyText: {
     fontFamily: fontFamily.grotesk,
-    fontSize: typography.body.fontSize,
+    fontSize: 15,
     fontWeight: '500',
-    color: colors.subInk,
+    color: '#4D5560',
     textAlign: 'center',
   },
   errorText: {
     fontFamily: fontFamily.grotesk,
-    fontSize: typography.body.fontSize,
+    fontSize: 15,
     fontWeight: '500',
     color: '#DC2626',
     textAlign: 'center',

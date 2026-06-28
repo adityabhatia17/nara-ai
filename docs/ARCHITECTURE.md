@@ -1,6 +1,6 @@
 # Nara — Architecture
 
-**Status:** Living document. Last updated 2026-06-19.
+**Status:** Living document. Last updated 2026-06-28. All systems implemented & running.
 **Owner:** Principal Architect (Agent 1).
 
 This is the single source of truth for every technology decision in Nara. Every
@@ -10,8 +10,7 @@ choice below lists the decision, the rejected alternatives, and the reasoning.
 
 ## 0. Product in one paragraph
 
-Nara is a voice-first personal memory app. The user talks (Phase 1: types) freely
-with no structure. Nara transcribes, extracts entities (people, topics, emotions,
+Nara is a text-based personal memory app. The user types freely with no structure. Nara transcribes, extracts entities (people, topics, emotions,
 intentions), splits the input into multiple organized notes, embeds them for
 semantic recall, maintains a per-user entity graph, detects behavioral patterns,
 and produces warm weekly letters and specific nudges. Target scale: a closed beta
@@ -374,15 +373,12 @@ skips (configurable threshold) rather than fabricating a full week.
 
 ## 6. Phasing
 
-- **Phase 1 (now): the AI core, text-in.** Auth, entries (text), full extraction
-  pipeline, notes/categories/entities/co-occurrences, embeddings, Ask Nara, loose
-  ends, pattern detection, weekly letter generation, nudge generation. No audio, no
-  Whisper, no Storage, no push delivery. Goal: prove the brain works.
-- **Phase 2: voice.** Add Supabase Storage, Groq Whisper, the audio upload→poll flow.
-  Rename `entries`→`recordings` semantics (add `storage_path`). Prepend transcription
-  to the existing pipeline; nothing downstream changes.
-- **Phase 3: the mobile app + delivery.** Build the ten screens against the frozen
-  API contract. Wire Expo Push for nudges and the weekly letter.
+- **Phase 1 (current): text-only, fully implemented.** Auth, entries (text), full
+  extraction pipeline, notes/categories/entities/co-occurrences, embeddings, Ask Nara,
+  loose ends, pattern detection, weekly letter generation, nudge generation. Mobile app
+  built (React Native + Expo SDK 56). Current work: UX polish + release-readiness.
+- **Future (unplanned): voice.** Audio input via Whisper could be added later; the
+  pipeline architecture supports prepending transcription. Not a committed phase.
 
 ---
 

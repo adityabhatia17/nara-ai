@@ -10,8 +10,8 @@ and continue.
 ---
 
 ## 1. What Nara is
-A voice-first personal memory app. The user (Priya, 24, busy professional, won't set
-up systems, won't tag anything) talks freely; Nara turns it into organized notes,
+A text-based personal memory app. The user (Priya, 24, busy professional, won't set
+up systems, won't tag anything) types freely; Nara turns it into organized notes,
 builds a per-person/per-topic memory, detects patterns, and writes warm weekly
 letters and specific nudges. **Phase 1 takes text input** — no audio yet. Read
 `nara-product-vision.md` (in Downloads / attach to context) for the full feel; the
@@ -171,22 +171,20 @@ requires grounding in specific notes (Rule #5) — it is reviewed, not just writ
 Run before any handoff.
 
 ## 13. Current implementation state
-### Done
-- All planning docs (ARCHITECTURE, DATABASE_SCHEMA, API_CONTRACT, ADR-001..003).
-- Monorepo skeleton (pnpm workspace, .gitignore, .env.example).
-### In progress
-- (nothing yet — scaffolding apps is the next step)
-### Queued (dependency order)
-1. Scaffold `apps/api` (Fastify + TS + Zod + Supabase client + pg-boss producer).
-2. Scaffold `apps/ai-worker` (uv + FastAPI + worker loop + clients).
-3. `packages/shared` types (Note, Entity, etc. from API_CONTRACT).
-4. SQL migrations (all 13 tables + indexes + RLS).
-5. Extraction prompt + pipeline + persistence (entity registry, co-occurrence).
-6. Embeddings + note_embeddings writes.
-7. API CRUD: auth, entries, notes, categories, entities, loose-ends.
-8. Ask Nara (RAG).
-9. Scheduled jobs: detect_patterns, weekly_letter, evaluate_nudges, sweeper.
-10. mood + notifications/preferences endpoints + DELETE /account.
+### Done (all implemented & running, E2E verified)
+- All planning docs + monorepo skeleton.
+- `apps/api` scaffolded: Fastify + TS + Zod + Supabase + pg-boss. All 12 route groups.
+- `apps/ai-worker` scaffolded: FastAPI + worker loop + Groq/OpenAI clients.
+- `packages/shared` types.
+- SQL migrations (13 tables + indexes + RLS + pgvector/pgcrypto). Supabase live.
+- Extraction pipeline + persistence (entity registry, co-occurrences).
+- Embeddings (OpenAI 3-small -> note_embeddings).
+- API CRUD: auth, entries, notes, categories, entities, loose-ends.
+- Ask Nara (RAG via Groq 70B).
+- Scheduled jobs: detect_patterns, weekly_letter, evaluate_nudges, sweeper.
+### Queued
+- Push notification delivery (Expo Push).
+- Production deployment to Railway.
 
 ## 14. Known issues / tech debt
 - Entity aliases ("Mom"/"my mother" → one entity) not yet modeled; extractor

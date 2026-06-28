@@ -4,11 +4,11 @@
 > any session.
 
 ## Project overview
-Nara is a voice-first personal memory app ("a brain you can talk to"). User talks
+Nara is a text-based personal memory app ("a brain you can talk to"). User types
 freely; Nara extracts entities, splits into organized notes, builds a per-user entity
-graph, detects patterns, and produces warm weekly letters + specific nudges. Closed
-beta, 20–50 users, ~$40–55/mo. Product feel: warm, calm, literary. See
-`nara-product-vision.md` (source brief, in user's Downloads).
+graph, detects patterns, and produces warm weekly letters + specific nudges. Phase 1
+is text-only (audio is an unplanned future option). Closed beta, 20-50 users,
+~$40-55/mo. Product feel: warm, calm, literary.
 
 Three-agent model: **Architect (me)** owns decisions + docs + backend core;
 **Backend Agent** (`docs/CLAUDE_BACKEND.md`); **Frontend Agent**
@@ -16,16 +16,28 @@ Three-agent model: **Architect (me)** owns decisions + docs + backend core;
 decision has a documented home.
 
 ## Current focus
-Phase 1 backend = the AI brain on **text input** (no audio). Planning docs complete;
-next is scaffolding the two apps and implementing the pipeline.
+Backend + mobile app are built and running. Current work is UX polish and
+release-readiness for text-only Phase 1.
 
-## Last session summary (2026-06-19)
-- Ran full brainstorming with the user; locked all tech decisions.
-- Wrote ARCHITECTURE.md, DATABASE_SCHEMA.md (13 tables), API_CONTRACT.md (frozen),
-  ADR-001/002/003, CLAUDE_BACKEND.md, CLAUDE_FRONTEND.md, this file, the spec.
-- Created monorepo skeleton (pnpm workspace, .gitignore, .env.example).
-- Key user-driven decisions: open-source models preferred; Python for AI + TS/Node
-  for API; Supabase; **Phase 1 is text-only (Whisper deferred to Phase 2)**.
+## Last session summaries
+### 2026-06-28
+- Backend complete and E2E verified: Node/Fastify API (apps/api, port 3000) + Python
+  AI worker (apps/ai-worker, port 8000). All 12 REST route groups, full extraction
+  pipeline (Groq 8B), embeddings (OpenAI), Ask Nara RAG (Groq 70B), patterns, weekly
+  letters, nudges, sweeper.
+- Supabase live: all migrations run (13 tables + pgvector + RLS), real keys in .env.
+- Mobile app built (apps/mobile): React Native + Expo SDK 56, 10+ screens, TenTap
+  rich-text editor, text-only (voice/recording removed from Phase 1).
+- Home redesigned: notes-list-first with floating action button (FAB) bottom-right
+  (replaced the old central record/new-note hero).
+- Note edit flow fixed: Edit (PUT /notes/:id) and "Add to note" (POST /notes/:id/append)
+  now distinct.
+- Login changed from magic-link to email/password + Google OAuth (Supabase Auth SDK).
+
+### 2026-06-19
+- Brainstorming + all tech decisions locked.
+- Wrote all planning docs (ARCHITECTURE, DATABASE_SCHEMA, API_CONTRACT, ADRs).
+- Created monorepo skeleton.
 
 ## Architecture decisions log
 - 2026-06-19 — Supabase (Postgres+pgvector+Auth+Storage) as single platform. *Fewest
@@ -36,28 +48,28 @@ next is scaffolding the two apps and implementing the pipeline.
   side; zero new infra for the queue; crash-resilient.* [ADR-003]
 - 2026-06-19 — REST (not tRPC/GraphQL); pnpm workspaces; Expo Router; Zustand +
   TanStack Query; Railway + Supabase + EAS hosting. [ARCHITECTURE.md §2]
-- 2026-06-19 — **Phase 1 text-only** (user decision). Whisper/Storage/audio = Phase 2;
-  mobile app + push = Phase 3.
+- 2026-06-19 — **Phase 1 text-only** (user decision). Audio/voice is an unplanned
+  future option, not a committed phase.
 
 ## Implementation state
 ### Done
-- All planning/contract docs + ADRs.
-- Monorepo skeleton + root config (package.json, pnpm-workspace.yaml, .gitignore,
-  .env.example).
-### In progress
-- Backend scaffolding (next action).
-### Queued (dependency order)
-1. Scaffold `apps/api` (Fastify+TS+Zod+Supabase+pg-boss producer).
-2. Scaffold `apps/ai-worker` (uv+FastAPI+worker loop+Groq/OpenAI clients).
-3. `packages/shared` TS types from API_CONTRACT.
-4. SQL migrations (13 tables + indexes + RLS + pgvector/pgcrypto extensions).
-5. Extraction prompt + pipeline + persistence (entity registry, co-occurrence).
-6. Embeddings → note_embeddings.
-7. API CRUD (auth, entries, notes, categories, entities, loose-ends).
-8. Ask Nara (RAG).
-9. Scheduled jobs (detect_patterns, weekly_letter, evaluate_nudges, sweeper).
-10. mood + notifications/preferences + DELETE /account.
-Then Phase 2 (audio), then Phase 3 (mobile).
+- All planning/contract docs + ADRs + monorepo skeleton.
+- `apps/api` — Fastify + TS + Zod + Supabase + pg-boss producer. All 12 route groups.
+- `apps/ai-worker` — Python pipeline: extraction (Groq 8B via LangChain), persistence
+  (entity graph + co-occurrences), embeddings (OpenAI 3-small → pgvector), Ask Nara
+  RAG (Groq 70B), pattern detection (SQL), weekly letters, nudges, sweeper.
+- `packages/shared` TS types.
+- SQL migrations (13 tables + indexes + RLS + pgvector/pgcrypto).
+- Supabase configured and live (real keys, E2E verified).
+- `apps/mobile` — React Native + Expo SDK 56, Expo Router, TanStack Query, Zustand,
+  TenTap rich-text editor. 10+ screens built (Home, Feed, Note Detail, Editor, Ask,
+  People, Person Detail, Nudges, Reveal, Settings, Login).
+- Auth: email/password + Google OAuth via Supabase Auth SDK.
+### Queued (release-readiness)
+- Final UX polish pass.
+- Push notifications (Expo Push).
+- Production deployment (Railway + EAS).
+- Beta invite flow.
 
 ## Open technical questions
 - **Entity aliases** ("Mom"/"my mother" → one entity). Phase 1: extractor normalizes
@@ -66,10 +78,7 @@ Then Phase 2 (audio), then Phase 3 (mobile).
 - **ivfflat lists=100** — fine for beta; move to hnsw if recall/latency suffers.
 - **emotion_score** single-axis for now; multi-axis (valence/arousal) is an additive
   future option.
-- **Ask Nara location** — served by Node API calling worker sync, or worker endpoint?
-  Leaning: Node API owns the RAG orchestration (it already has the Supabase client),
-  calling Groq/OpenAI directly via a small TS client, to avoid a sync hop. Revisit
-  during step 8.
+- **Ask Nara location** — currently served by the Python worker (RAG endpoint).
 
 ## Critical reminders
 - **emotion_score never crosses the API boundary** (Rule #8).

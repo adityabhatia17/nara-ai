@@ -9,20 +9,22 @@ need a change, the Architect updates API_CONTRACT.md + its changelog first.
 ---
 
 ## 1. What Nara is & why design matters
-A voice-first personal memory app for Priya (24, busy, no patience for systems). The
-app must feel warm, calm, literary — "somewhere you'd want to go," not software. Read
-`nara-product-vision.md`. The magic moments the UI must nail: the **Reveal** (one
-input → several notes cascading in), **Ask Nara** (feels like someone who read
-everything), the **weekly letter**, and **nudges** (specific, never generic).
+A text-based personal memory app for Priya (24, busy, no patience for systems). The
+user types notes (like a notes app); Phase 1 is text-only (no audio/recording). The
+app must feel warm, calm, literary -- "somewhere you'd want to go," not software. The
+magic moments the UI must nail: the **Reveal** (one input -> several notes cascading
+in), **Ask Nara** (feels like someone who read everything), the **weekly letter**, and
+**nudges** (specific, never generic).
 
 ## 2. Stack (locked)
 - **React Native + Expo** (managed). TypeScript.
 - **Navigation:** Expo Router (file-based; React Navigation under the hood).
-- **Server state:** TanStack Query (React Query) — caching, the recording-status
-  poll, retries, optimistic updates.
-- **Local/UI state:** Zustand (recording state, active filters, transient UI).
+- **Server state:** TanStack Query (React Query) -- caching, entry-status poll,
+  retries, optimistic updates.
+- **Local/UI state:** Zustand (active filters, transient UI flags).
+- **Rich-text editor:** `@10play/tentap-editor` (TenTap) for note editing.
 - **Fonts:** `expo-font` + `@expo-google-fonts/schibsted-grotesk` (single typeface).
-- **Animations:** `react-native-reanimated`. All 6 animations must be disabled when
+- **Animations:** `react-native-reanimated`. Animations must be disabled when
   `prefers-reduced-motion` / Reduce Motion is on (use `AccessibilityInfo`).
 - Lives in `apps/mobile`.
 
@@ -111,28 +113,26 @@ palette; keep the four canonical mappings above fixed.
 - All text sizes use zero or negative letter-spacing for tightness. Category markers are
   always uppercase labels — never colour-only.
 
-## 5. The 6 animations (Reanimated; off on reduce-motion)
-- `pulseRing`: scale 0.92→1.5, opacity 0.5→0, 3s ease-out infinite. Two thin cobalt
-  rings offset by 1.5s ripple from record button — quiet invitation to talk.
-- `wavePulse`: scaleY 0.30→1, ease-in-out infinite. 38 cobalt bars on listening screen,
-  staggered 0–0.56s delay, 0.8–1.4s duration — organic, breathing waveform.
-- `breathe`: scale 1→1.06, 1.6s ease-in-out infinite. Nara mark on processing screen
-  — something is happening, quietly.
-- `fadeUp`: translateY(16→0) + opacity 0→1, 0.5s ease. Four reveal cards stagger at
-  130ms intervals — ramble becomes order.
-- `dotBlink`: opacity 0.25→1, 1.2s infinite. Three dots, each delayed 200ms. Ask typing.
-- `pushDown`: translateY(-14→0) + opacity 0→1, 0.5s ease. Home nudge banner arrives
-  from above — like a notification, because it is one.
+## 5. Animations (Reanimated; off on reduce-motion)
+- `breathe`: scale 1->1.06, 1.6s ease-in-out infinite. Nara mark on processing --
+  something is happening, quietly.
+- `fadeUp`: translateY(16->0) + opacity 0->1, 0.5s ease. Reveal cards stagger at
+  130ms intervals -- input becomes organized notes.
+- `dotBlink`: opacity 0.25->1, 1.2s infinite. Three dots, each delayed 200ms. Ask
+  typing indicator.
+- `pushDown`: translateY(-14->0) + opacity 0->1, 0.5s ease. Nudge banner arrives
+  from above.
 
 ## 6. Navigation structure (Expo Router)
-- **Tab navigator** (frosted bar — blur + parchment w/ opacity, Visual Rule #7):
-  - **Talk** → Home
-  - **Notes** → Feed → Note Detail (stack)
-  - **Ask** → Ask Nara
-  - **People** → People → Person Detail (stack)
-- **Full-screen routes (no tab bar):** Listening, Processing, Reveal.
-- **Modal overlay (Home visible behind):** Nudges (Visual Rule #8).
-- Deep links: nudge tap → relevant note/Home; weekly-letter push → letter screen.
+- **Tab navigator:**
+  - **Home** (index) -- notes-list-first with FAB for new note
+  - **Notes** -> Feed -> Note Detail (stack)
+  - **Ask** -> Ask Nara
+  - **People** -> People -> Person Detail (stack)
+  - **Settings**
+- **Full-screen routes (no tab bar):** Editor (TenTap), Reveal.
+- **Modal overlay:** Nudges (dark overlay, Home visible behind).
+- **Auth group:** Login (email/password + Google OAuth), Verify.
 
 ## 7. State management shape
 - **TanStack Query** for all server data. Query keys: `['notes', filters]`,
@@ -140,43 +140,40 @@ palette; keep the four canonical mappings above fixed.
   `['letters']`, `['letter', id]`, `['mood', range]`, `['nudges']`,
   `['entry-status', id]` (poll: `refetchInterval` ~1500ms until status terminal).
   Optimistic updates for note edit/append and loose-end dismiss.
-- **Zustand** store: `recording` (idle|listening|processing + elapsed), active feed
-  filter (time|category|person), transient UI flags. Nothing that belongs to the
-  server lives here.
+- **Zustand** store: active feed filter (time|category|person), transient UI flags.
+  Nothing that belongs to the server lives here.
 
 ## 8. API client
 - `lib/api.ts`: base URL from env, attaches `Authorization: Bearer <supabase jwt>`
   from the Supabase session, parses the standard error shape, throws typed errors.
-- Auth via `@supabase/supabase-js` (magic link). Session drives the JWT.
-- Loading states map to Query states; the recording flow drives Listening →
-  Processing → poll → Reveal off `['entry-status', id]`.
+- Auth via `@supabase/supabase-js` (email/password + Google OAuth). Session drives
+  the JWT.
+- Loading states map to Query states; entry submission polls `['entry-status', id]`
+  until done, then navigates to Reveal.
 - Import response types from `packages/shared` — do not redefine note/entity shapes.
 
-## 9. The 10 screens
-1. **Home** — 32px display greeting "Good morning, Priya" + meta timestamp, conditional
-   nudge card (pushDown), 118px ink record button + 2 cobalt pulseRing rings (always most
-   prominent — Rule #5), "Recent" eyebrow + 2 latest note cards. Tab: Talk.
-2. **Listening** — paper bg #F3F3F1, "Nara is listening" (body 500), 38 cobalt wavePulse
-   bars, timer (display 700), 60px ink stop circle w/ cobalt square. No tab bar.
-3. **Processing** — paper bg #F3F3F1, 78px ink mark with cobalt dot, breathing (breathe),
-   "Sorting what you said…" (voice italic 400, 15.5px), auto-advance ~1.8s. No tab bar.
-4. **Reveal** — "From what you said" (title 700), verbatim quote block (left cobalt
-   border), "Nara made 4 notes" (title 700), N note cards staggered fadeUp, dark full-width
-   "See them in your feed" CTA. No tab bar.
-5. **Feed** — "Your notes" (display 700), 3 filter pills (Time/Category/Person), grouped
-   note cards w/ eyebrow section headers, 3 views. Tab: Notes.
-6. **Note Detail** — "‹ Notes" (meta), category dot+label+meta timestamp, full text
-   (body 500), nara context box (white bg, italic voice, eye preview), "Add a voice note"
-   (primary button) + "Type" (secondary). Tab: Notes.
-7. **Ask Nara** — heading+subtitle, chat thread (user bubbles right cobalt, Nara left
-   white), dotBlink typing, suggestion chips (category or entity-based), input + send. Tab: Ask.
-8. **People** — heading+subtitle, person cards (initial+tint avatar, name title, mention
-   count meta, last quote body, chevron). Tab: People.
-9. **Person Detail** — "‹ People" (meta), large avatar + name title + mention stats meta,
-   timeline (date eyebrow + tone pill + note body) with thin vertical connector. Tab: People.
-10. **Nudges** — dark overlay #121316 modal, "From Nara" (display 700 inverted), nudge
-    cards (mark icon + body text + meta timestamp), "Close" (secondary button). No tab bar,
-    Home visible behind. Modal entry: pushDown animation.
+## 9. The screens
+1. **Home** (tabs/index) -- Notes-list-first layout with display greeting. Conditional
+   nudge card (pushDown). Floating action button (FAB) bottom-right for new note.
+2. **Feed** (tabs/notes/index) -- "Your notes" (display 700), filter pills
+   (Time/Category/Person), grouped note cards with eyebrow section headers. Tab: Notes.
+3. **Note Detail** (tabs/notes/[id]) -- Category dot+label+timestamp, full text
+   (body 500), Nara context box. Edit (full replace) and "Add to note" (append) actions.
+4. **Editor** (editor.tsx) -- Full-screen TenTap rich-text editor for composing/editing
+   notes. No tab bar.
+5. **Reveal** (reveal.tsx) -- "From what you said" (title 700), verbatim quote block,
+   N note cards staggered fadeUp, CTA to feed. No tab bar.
+6. **Ask Nara** (tabs/ask) -- Chat thread (user bubbles right cobalt, Nara left white),
+   dotBlink typing indicator, suggestion chips, input + send. Tab: Ask.
+7. **People** (tabs/people/index) -- Person cards (avatar, name, mention count, last
+   quote, chevron). Tab: People.
+8. **Person Detail** (tabs/people/[id]) -- Large avatar + name + mention stats,
+   timeline with tone pills and vertical connector. Tab: People.
+9. **Settings** (tabs/settings) -- User preferences. Tab: Settings.
+10. **Nudges** (nudges-modal.tsx) -- Dark overlay #121316 modal, nudge cards, pushDown
+    animation. Home visible behind.
+11. **Login** (auth/login) -- Email/password + Google OAuth via Supabase Auth.
+12. **Verify** (auth/verify) -- Email verification / OTP.
 
 ## 10. The 10 governing visual rules
 1. **Paper bg (#F3F3F1) everywhere except Nudges (#121316 lockscreen dark).**
@@ -187,8 +184,8 @@ palette; keep the four canonical mappings above fixed.
    Person timeline. Consistent visually and in code.
 4. **All animations disabled when reduce-motion is active.** Use `AccessibilityInfo`
    to detect and Reanimated `useReduceMotion()` hook.
-5. **Record button is the most prominent element on Home.** 118px circle, always
-   centred, full-width tap target (or App-specific — check platform guidance).
+5. **FAB (new-note button) is the primary action on Home.** Floating action button,
+   bottom-right, always accessible.
 6. **Category colour applied consistently.** Dot (7px rounded square, not circle)
    + label in same colour. Never colour-only signal.
 7. **Tab bar is opaque, not frosted.** Paper background with hairline top border.
@@ -196,45 +193,23 @@ palette; keep the four canonical mappings above fixed.
 9. **No truncation.** Person names, category names, note content wrap. No ellipsis.
 10. **Press states are quiet.** Opacity 0.85 or subtle scale 0.98 — nothing bouncy.
 
-## 11. Component inventory (build these reusables)
-`NoteCard` (the one card, used in Feed/Reveal/Home/Person timeline), `CategoryPill`,
-`FilterTabs`, `RecordButton` (+ pulseRing), `Waveform` (38 bars), `BreathingLogo`,
-`PersonCard`, `ToneePill`, `ChatBubble` (user/nara variants), `TypingDots`,
-`NudgeCard` (light + dark-glass variants), `SectionHeader`, `PrimaryButton`/
-`SecondaryButton`, `ScreenTitle`, `TabBar` (frosted).
+## 11. Component inventory
+`NoteCard` (universal -- Feed/Reveal/Home/Person timeline), `CategoryPill`,
+`FilterTabs`, `FAB` (floating action button), `BreathingLogo`, `PersonCard`,
+`TonePill`, `ChatBubble` (user/nara variants), `TypingDots`, `NudgeCard` (light +
+dark-glass variants), `SectionHeader`, `PrimaryButton`/`SecondaryButton`,
+`ScreenTitle`, `TabBar`.
 
 ## 12. Current implementation state
 ### Done
-- Design system fully specified with actual Nara Design System.dc.html tokens.
-- Backend API contract frozen (12 endpoints, E2E tested, all services live).
-- Shared types published (`@nara/shared` with all response shapes).
-- Login screen designed as part of Auth flow (magic-link → JWT → protected routes).
+- Design system tokens implemented in `theme/tokens.ts`.
+- All screens built: Home (FAB), Feed, Note Detail, Editor (TenTap), Reveal, Ask,
+  People, Person Detail, Settings, Nudges modal, Login (email/password + Google), Verify.
+- Expo Router navigation wired (tabs + stacks + modals + auth group).
+- TanStack Query + Zustand integrated. API client with Supabase Auth.
+- Backend API fully implemented and E2E tested.
 
-### In flight (parallel subagents with shared source of truth)
-1. **Foundation** — Scaffold `apps/mobile`, install Expo Router + TanStack Query + Zustand,
-   build `theme/tokens.ts` (colors, typography, spacing, radii, shadows), API client with
-   error handling, Supabase auth (magic link), reduce-motion hook.
-2. **Components** — NoteCard (universal), CategoryPill, FilterTabs, RecordButton (+ pulseRing),
-   Waveform (38 bars), BreathingLogo, PersonCard, TonePill, ChatBubble, TypingDots,
-   NudgeCard, SectionHeader, PrimaryButton, SecondaryButton, ScreenTitle, TabBar.
-3. **Screens (in parallel)**:
-   - **Auth Screen** — Magic link input, OTP entry (Supabase handles).
-   - **Home** — Record button, recent notes, nudge banner, tab bar.
-   - **Listening** — Waveform, timer, stop button.
-   - **Processing** — Breathing logo, auto-advance.
-   - **Reveal** — Quote block, cascading note cards (fadeUp), CTA.
-   - **Feed** — Filter pills, note cards, section headers.
-   - **Note Detail** — Full text, Nara context, append/edit actions.
-   - **Ask Nara** — Chat thread, typing indicator, suggestion chips.
-   - **People** — Person cards, navigation to detail.
-   - **Person Detail** — Timeline with tone pills, vertical connector.
-   - **Nudges** — Dark modal overlay, push-down entry.
-4. **Integration & Polish** — Router wiring, TanStack Query setup (caching, polling
-   for entry-status), Zustand store, all 6 animations with reduce-motion pass, press
-   states (opacity/scale), empty states, error handling, navigation stack order.
-
-All agents read from:
-- `docs/API_CONTRACT.md` (frozen, authoritative endpoint shapes)
-- `docs/CLAUDE_FRONTEND.md` (this file — design tokens + visual rules)
-- `@nara/shared` types (import types, don't redefine)
-```
+### Queued
+- UX polish pass (empty states, error handling, press states).
+- Push notifications (Expo Push).
+- Production deployment.

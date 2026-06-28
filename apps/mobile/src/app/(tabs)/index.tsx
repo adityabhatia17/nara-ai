@@ -1,16 +1,14 @@
 /**
- * Home Screen -- Talk tab (text capture: "New note" hero)
+ * Home Screen -- Talk tab (notes-list-first with FAB)
  *
- * Design (from Nara.dc.html lines 29-97):
+ * Layout:
  *   Header: NaraLogo (25px mark, 7px radius) + "Nara" (18px, 700, -0.4) gap 9px
  *           Right: time (12.5px, 500, #9A9DA1)
  *   Greeting: 32px, 700, tracking -0.9, ink, margin-bottom 22px
- *   Capture hero: centered, padding 52px top 46px bottom
- *     Button: 118px circle, ink bg, shadow, pencil glyph
- *     "New note" -- 16px, 600, ink, margin-top 24px
- *     Subtitle: "Just start writing. No structure needed." -- 13px, 400, #9A9DA1, margin-top 5px
+ *   Nudge banner (conditional)
  *   "Recent" header: flex between, eyebrow left, "All notes" 12.5px 600 cobalt right
- *   Note cards: gap 10px
+ *   Note cards: gap 10px, limit 8
+ *   FAB: 60px ink circle, bottom-right, pencil glyph, opens editor
  */
 
 import { useCallback } from 'react';
@@ -34,7 +32,7 @@ import { supabase } from '@/lib/supabase';
 import { NaraLogo } from '@/components/nara-logo';
 import { NoteCard } from '@/components/note-card';
 import { NoteCardSkeleton } from '@/components/NoteCardSkeleton';
-import { usePushDown, usePulseRing } from '@/hooks/animations';
+import { usePushDown } from '@/hooks/animations';
 import type { MeResponse, NotesListResponse, NudgesListResponse } from '@nara/shared';
 
 // -- Date helpers ------------------------------------------------------------
@@ -87,45 +85,6 @@ function NudgeBanner({ content, onPress }: NudgeBannerProps) {
   );
 }
 
-// -- Capture hero ------------------------------------------------------------
-
-function CaptureHero({ onPress }: { onPress: () => void }) {
-  const reduceMotion = useReducedMotion();
-  const { ring1Style, ring2Style, active } = usePulseRing(reduceMotion);
-
-  return (
-    <View style={styles.heroContainer}>
-      <TouchableOpacity
-        onPress={onPress}
-        activeOpacity={0.85}
-        style={styles.heroTouchable}
-      >
-        {/* Pulse rings — hidden under reduce-motion */}
-        {active && (
-          <>
-            <Animated.View style={[styles.pulseRing, ring1Style]} />
-            <Animated.View style={[styles.pulseRing, ring2Style]} />
-          </>
-        )}
-
-        {/* Main circle */}
-        <View style={styles.heroCircle}>
-          {/* Pencil glyph */}
-          <View style={styles.pencilWrapper}>
-            {/* Body bar — rotated 45deg */}
-            <View style={styles.pencilBody} />
-            {/* Nib triangle — rotated 45deg, positioned below body */}
-            <View style={styles.pencilNib} />
-          </View>
-        </View>
-      </TouchableOpacity>
-
-      <Text style={styles.heroLabel}>New note</Text>
-      <Text style={styles.heroSub}>Just start writing. No structure needed.</Text>
-    </View>
-  );
-}
-
 // -- Screen ------------------------------------------------------------------
 
 export default function HomeScreen() {
@@ -142,10 +101,10 @@ export default function HomeScreen() {
   });
 
   const notesQuery = useQuery({
-    queryKey: ['notes', { limit: 2 }],
+    queryKey: ['notes', { limit: 8 }],
     queryFn: async () => {
       const res = await api.get<NotesListResponse>('/notes', {
-        params: { limit: 2 },
+        params: { limit: 8 },
       });
       return res.data;
     },
@@ -241,9 +200,6 @@ export default function HomeScreen() {
           />
         ) : null}
 
-        {/* -- Capture hero ------------------------------------------------- */}
-        <CaptureHero onPress={handleOpenEditor} />
-
         {/* -- Recent notes ------------------------------------------------- */}
         <View style={styles.recentHeader}>
           <Text style={styles.eyebrow}>Recent</Text>
@@ -274,6 +230,18 @@ export default function HomeScreen() {
         </View>
 
       </ScrollView>
+
+      {/* -- Floating action button ----------------------------------------- */}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={handleOpenEditor}
+        activeOpacity={0.85}
+      >
+        <View style={styles.fabPencilWrapper}>
+          <View style={styles.fabPencilBody} />
+          <View style={styles.fabPencilNib} />
+        </View>
+      </TouchableOpacity>
     </SafeAreaView>
   );
 }
@@ -403,75 +371,43 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
 
-  // -- Capture hero
-  heroContainer: {
-    alignItems: 'center',
-    paddingTop: 52,
-    paddingBottom: 46,
-  },
-  heroTouchable: {
-    width: 128,
-    height: 128,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pulseRing: {
+  // -- Floating action button
+  fab: {
     position: 'absolute',
-    top: 4,
-    left: 4,
-    right: 4,
-    bottom: 4,
-    borderRadius: 59,
-    borderWidth: 1.5,
-    borderColor: 'rgba(46,80,230,0.3)',
-  },
-  heroCircle: {
-    width: 118,
-    height: 118,
-    borderRadius: 59,
-    backgroundColor: '#18191B',
+    bottom: 100,
+    right: 24,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: colors.ink,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.3,
-    shadowRadius: 34,
-    elevation: 16,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 14,
+    elevation: 8,
   },
-  pencilWrapper: {
+  fabPencilWrapper: {
     alignItems: 'center',
     transform: [{ rotate: '45deg' }],
   },
-  pencilBody: {
-    width: 8,
-    height: 34,
-    borderRadius: 3,
-    backgroundColor: '#F3F3F1',
+  fabPencilBody: {
+    width: 4,
+    height: 18,
+    borderRadius: 2,
+    backgroundColor: colors.paper,
   },
-  pencilNib: {
+  fabPencilNib: {
     width: 0,
     height: 0,
-    borderLeftWidth: 4,
-    borderRightWidth: 4,
-    borderTopWidth: 7,
+    borderLeftWidth: 2,
+    borderRightWidth: 2,
+    borderTopWidth: 4,
     borderLeftColor: 'transparent',
     borderRightColor: 'transparent',
-    borderTopColor: '#F3F3F1',
-    marginTop: -1,
-  },
-  heroLabel: {
-    fontFamily: fontFamily.grotesk,
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#18191B',
-    marginTop: 24,
-  },
-  heroSub: {
-    fontFamily: fontFamily.grotesk,
-    fontSize: 13,
-    fontWeight: '400',
-    color: '#9A9DA1',
-    marginTop: 5,
+    borderTopColor: colors.paper,
+    marginTop: -0.5,
   },
 
   // -- Recent

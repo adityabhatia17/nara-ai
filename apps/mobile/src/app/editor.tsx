@@ -94,12 +94,14 @@ export default function EditorScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
-  const { noteId, initialContent } = useLocalSearchParams<{
+  const { noteId, initialContent, mode } = useLocalSearchParams<{
     noteId?: string;
     initialContent?: string;
+    mode?: string;
   }>();
 
-  const isEditMode = !!noteId;
+  const isAppendMode = mode === 'append';
+  const isEditMode = !!noteId && !isAppendMode;
 
   const [isSaving, setIsSaving] = useState(false);
   const savedToastOpacity = useRef(new Animated.Value(0)).current;
@@ -107,7 +109,7 @@ export default function EditorScreen() {
   const editor = useEditorBridge({
     autofocus: true,
     avoidIosKeyboard: true,
-    initialContent: initialContent || '',
+    initialContent: isAppendMode ? '' : (initialContent || ''),
     bridgeExtensions: [
       ...TenTapStartKit,
       PlaceholderBridge.configureExtension({
@@ -153,8 +155,10 @@ export default function EditorScreen() {
 
   const saveMutation = useMutation({
     mutationFn: async (text: string) => {
-      if (isEditMode && noteId) {
-        await api.put(`/notes/${noteId}`, { text });
+      if (isAppendMode && noteId) {
+        await api.post(`/notes/${noteId}/append`, { text });
+      } else if (isEditMode && noteId) {
+        await api.put(`/notes/${noteId}`, { content: text });
       } else {
         await api.post('/entries', { text });
       }
@@ -237,7 +241,7 @@ export default function EditorScreen() {
         </TouchableOpacity>
 
         <Text style={styles.headerTitle}>
-          {isEditMode ? 'Edit note' : 'New note'}
+          {isAppendMode ? 'Add to note' : isEditMode ? 'Edit note' : 'New note'}
         </Text>
 
         <TouchableOpacity

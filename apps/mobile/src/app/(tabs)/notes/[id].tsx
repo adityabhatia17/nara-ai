@@ -70,10 +70,17 @@ export default function NoteDetailScreen() {
   const catLabel = firstCategory?.name ?? '';
   const timestamp = formatTimestamp(note.created_at);
 
-  const navigateToEditor = () => {
+  const navigateToAppend = () => {
     router.push({
       pathname: '/editor',
-      params: { noteId: id, initialContent: note.content },
+      params: { noteId: id, mode: 'append' },
+    });
+  };
+
+  const navigateToEdit = () => {
+    router.push({
+      pathname: '/editor',
+      params: { noteId: id, initialContent: note.content, mode: 'edit' },
     });
   };
 
@@ -129,7 +136,7 @@ export default function NoteDetailScreen() {
         <View style={styles.actionRow}>
           <TouchableOpacity
             style={styles.primaryBtn}
-            onPress={navigateToEditor}
+            onPress={navigateToAppend}
             activeOpacity={0.85}
           >
             <Text style={styles.primaryBtnText}>Add to note</Text>
@@ -137,7 +144,7 @@ export default function NoteDetailScreen() {
 
           <TouchableOpacity
             style={styles.secondaryBtn}
-            onPress={navigateToEditor}
+            onPress={navigateToEdit}
             activeOpacity={0.85}
           >
             <Text style={styles.secondaryBtnText}>Edit</Text>

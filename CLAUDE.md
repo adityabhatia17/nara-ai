@@ -32,7 +32,8 @@ release-readiness for text-only Phase 1.
   (replaced the old central record/new-note hero).
 - Note edit flow fixed: Edit (PUT /notes/:id) and "Add to note" (POST /notes/:id/append)
   now distinct.
-- Login changed from magic-link to email/password + Google OAuth (Supabase Auth SDK).
+- Login is email OTP-code (two-step: enter email → enter 6-digit code → verifyOtp),
+  via Supabase Auth SDK. Stays in-app; no password, no Google config needed.
 
 ### 2026-06-19
 - Brainstorming + all tech decisions locked.
@@ -64,7 +65,7 @@ release-readiness for text-only Phase 1.
 - `apps/mobile` — React Native + Expo SDK 56, Expo Router, TanStack Query, Zustand,
   TenTap rich-text editor. 10+ screens built (Home, Feed, Note Detail, Editor, Ask,
   People, Person Detail, Nudges, Reveal, Settings, Login).
-- Auth: email/password + Google OAuth via Supabase Auth SDK.
+- Auth: email OTP-code (signInWithOtp → verifyOtp) via Supabase Auth SDK.
 ### Queued (release-readiness)
 - Final UX polish pass.
 - Push notifications (Expo Push).

@@ -1,4 +1,5 @@
 import Fastify from "fastify";
+import type { FastifyRequest } from "fastify";
 import cors from "@fastify/cors";
 import { config } from "./config.js";
 import { pool } from "./lib/db.js";
@@ -48,7 +49,10 @@ export async function buildServer() {
 
   // Protected routes — all require valid Supabase JWT
   await app.register(async (api) => {
-    api.decorateRequest("user", null);
+    // Declared non-nullable in the FastifyRequest augmentation (hooks/auth.ts) and
+    // populated per-request by authHook. Decorate with null so the slot exists and is
+    // assignable; the cast satisfies the non-nullable declared type at compile time.
+    api.decorateRequest("user", null as unknown as FastifyRequest["user"]);
     api.addHook("preHandler", authHook);
 
     await api.register(entriesRoutes);

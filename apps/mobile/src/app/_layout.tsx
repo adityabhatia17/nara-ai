@@ -11,7 +11,6 @@
 import { useEffect } from 'react';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
-import * as Linking from 'expo-linking';
 import { Redirect, Stack, useRouter } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -29,7 +28,6 @@ import { colors } from '@/theme/tokens';
 import { useAuthStatus } from '@/hooks/useAuthStatus';
 import { useSession } from '@/lib/auth';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { supabase } from '@/lib/supabase';
 
 // Keep splash screen up while fonts load
 SplashScreen.preventAutoHideAsync();
@@ -73,50 +71,6 @@ export default function RootLayout() {
     }
   }, [user, authLoading, router]);
 
-  // Deep link handler for magic link auth
-  useEffect(() => {
-    const handleDeepLink = async (url: string) => {
-      try {
-        // Parse the deep link URL (e.g., nara://auth/callback?token_hash=xxx&type=email)
-        const parsed = Linking.parse(url);
-        const { queryParams } = parsed;
-
-        // Supabase magic link sends token_hash in the URL
-        if (queryParams?.token_hash) {
-          const { data, error } = await supabase.auth.verifyOtp({
-            token_hash: queryParams.token_hash as string,
-            type: 'email',
-          });
-
-          if (error) {
-            console.error('Magic link verification failed:', error.message);
-          } else if (data.session) {
-            // Auth successful — session is set, navigate to home
-            console.log('Magic link verified successfully');
-            router.replace('/(tabs)');
-          }
-        }
-      } catch (error) {
-        console.error('Deep link handling error:', error);
-      }
-    };
-
-    // Listen for deep links
-    const subscription = Linking.addEventListener('url', ({ url }) => {
-      console.log('Deep link received:', url);
-      handleDeepLink(url);
-    });
-
-    // Handle if app was launched from a deep link
-    Linking.getInitialURL().then((url) => {
-      if (url != null) {
-        console.log('App launched with deep link:', url);
-        handleDeepLink(url);
-      }
-    });
-
-    return () => subscription.remove();
-  }, [router]);
 
   // Block render until fonts are ready
   if (!fontsLoaded && !fontError) {

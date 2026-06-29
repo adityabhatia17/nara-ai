@@ -1,6 +1,6 @@
 /**
  * Auth Stack Layout
- * Handles magic link authentication flow.
+ * Email OTP code authentication flow.
  * Separate from main tab navigation.
  */
 
@@ -14,7 +14,6 @@ export default function AuthLayout() {
       }}
     >
       <Stack.Screen name="login" />
-      <Stack.Screen name="verify" />
     </Stack>
   );
 }

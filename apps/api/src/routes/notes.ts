@@ -2,6 +2,7 @@ import type { FastifyPluginAsync } from "fastify";
 import { pool } from "../lib/db.js";
 import { sendError } from "../lib/errors.js";
 import { encodeCursor, decodeCursor } from "../lib/cursor.js";
+import { enqueueReprocessNote } from "../lib/queue.js";
 
 // SQL fragment that builds the full Note shape (no emotion_score)
 const NOTE_SELECT = `
@@ -123,6 +124,12 @@ const notesRoutes: FastifyPluginAsync = async (app) => {
       [newContent, id, userId]
     );
 
+    try {
+      await enqueueReprocessNote(id);
+    } catch (err) {
+      request.log.error({ err }, "failed to enqueue reprocess_note");
+    }
+
     const { rows: updated } = await pool.query(
       `${NOTE_SELECT} WHERE n.id = $1 AND n.user_id = $2 GROUP BY n.id`,
       [id, userId]
@@ -148,6 +155,12 @@ const notesRoutes: FastifyPluginAsync = async (app) => {
       [content.trim(), id, userId]
     );
     if (rowCount === 0) return sendError(reply, 404, "not_found", "Note not found");
+
+    try {
+      await enqueueReprocessNote(id);
+    } catch (err) {
+      request.log.error({ err }, "failed to enqueue reprocess_note");
+    }
 
     const { rows } = await pool.query(
       `${NOTE_SELECT} WHERE n.id = $1 AND n.user_id = $2 GROUP BY n.id`,

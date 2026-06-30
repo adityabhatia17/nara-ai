@@ -36,3 +36,7 @@ Thumbs.db
 # Supabase
 supabase/.branches/
 supabase/.temp/
+
+# Personal / not for publication (build-in-public notes, drafts)
+nara-buildinpublic.md
+*.private.md

@@ -48,7 +48,7 @@ async def reprocess_note(note_id: str) -> None:
 
     # 2. Additively link newly-mentioned entities (no double-counting).
     try:
-        extraction = await extract_from_text(content)
+        extraction = await extract_from_text(content, user_id=user_id)
     except Exception as exc:
         logger.warning("reprocess_note: extraction failed for note %s: %s", note_id, exc)
         return

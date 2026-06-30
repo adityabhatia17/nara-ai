@@ -3,6 +3,7 @@ from ..clients.openai import get_embeddings
 from ..clients.groq import get_quality_llm
 from ..db import get_pool
 from ..prompts.ask_nara import ASK_NARA_SYSTEM_PROMPT
+from ..telemetry import telemetry_config
 
 # Lazy-loaded module-level so tests can patch nara_worker.rag.ask_nara.quality_llm
 quality_llm = None
@@ -54,7 +55,10 @@ async def ask_nara(user_id: str, question: str, k: int = 10) -> dict:
         ("human", "{question}"),
     ])
     chain = prompt | quality_llm
-    response = await chain.ainvoke({"context": context, "question": question})
+    response = await chain.ainvoke(
+        {"context": context, "question": question},
+        config=telemetry_config("ask", user_id),
+    )
 
     cited_ids = [row["note_id"] for row in rows]
     return {"answer": response.content, "cited_note_ids": cited_ids}

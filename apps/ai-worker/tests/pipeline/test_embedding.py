@@ -13,7 +13,8 @@ async def test_embed_note_inserts_vector():
     mock_embeddings = MagicMock()
     mock_embeddings.aembed_query = AsyncMock(return_value=[0.1] * 1536)
 
-    with patch("nara_worker.clients.openai.get_embeddings", return_value=mock_embeddings):
+    with patch("nara_worker.clients.openai.get_embeddings", return_value=mock_embeddings), \
+         patch("nara_worker.pipeline.embedding.record_event", AsyncMock()):
         from nara_worker.pipeline.embedding import embed_note
         result = await embed_note(
             conn=conn,
@@ -36,7 +37,8 @@ async def test_embed_note_returns_false_on_api_error():
     mock_embeddings = MagicMock()
     mock_embeddings.aembed_query = AsyncMock(side_effect=Exception("OpenAI API error"))
 
-    with patch("nara_worker.clients.openai.get_embeddings", return_value=mock_embeddings):
+    with patch("nara_worker.clients.openai.get_embeddings", return_value=mock_embeddings), \
+         patch("nara_worker.pipeline.embedding.record_event", AsyncMock()):
         from nara_worker.pipeline.embedding import embed_note
         result = await embed_note(
             conn=conn,
@@ -57,7 +59,8 @@ async def test_embed_note_returns_false_on_db_error():
     mock_embeddings = MagicMock()
     mock_embeddings.aembed_query = AsyncMock(return_value=[0.0] * 1536)
 
-    with patch("nara_worker.clients.openai.get_embeddings", return_value=mock_embeddings):
+    with patch("nara_worker.clients.openai.get_embeddings", return_value=mock_embeddings), \
+         patch("nara_worker.pipeline.embedding.record_event", AsyncMock()):
         from nara_worker.pipeline.embedding import embed_note
         result = await embed_note(
             conn=conn,

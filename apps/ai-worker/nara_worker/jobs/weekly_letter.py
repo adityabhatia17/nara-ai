@@ -2,8 +2,9 @@ import logging
 from datetime import date, timedelta
 from langchain_core.prompts import ChatPromptTemplate
 from ..clients.groq import get_quality_llm
-from ..prompts.weekly_letter import WEEKLY_LETTER_SYSTEM_PROMPT
+from ..prompts.weekly_letter import WEEKLY_LETTER_SYSTEM_PROMPT, WEEKLY_LETTER_VERSION
 from ..db import fetchall
+from ..telemetry import telemetry_config
 
 logger = logging.getLogger(__name__)
 MIN_NOTES_FOR_LETTER = 3
@@ -50,7 +51,10 @@ async def generate_letter_for_user(
         ("human", "Write my weekly letter."),
     ])
     chain = prompt | _get_quality_llm()
-    response = await chain.ainvoke({"notes_text": notes_text})
+    response = await chain.ainvoke(
+        {"notes_text": notes_text},
+        config=telemetry_config("letter", user_id, WEEKLY_LETTER_VERSION),
+    )
 
     await conn.execute(
         "INSERT INTO weekly_letters (user_id, content, week_start, week_end) "

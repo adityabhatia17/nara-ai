@@ -64,7 +64,7 @@ async def process_entry(entry_id: str) -> None:
     pool2 = await get_pool()
     async with pool2.connection() as conn:
         try:
-            extraction = await extract_from_text(row["raw_text"])
+            extraction = await extract_from_text(row["raw_text"], user_id=row["user_id"])
         except Exception as exc:
             logger.error("Extraction failed for entry %s: %s", entry_id, exc)
             async with conn.transaction():

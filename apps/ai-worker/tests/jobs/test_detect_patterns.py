@@ -1,19 +1,22 @@
 from __future__ import annotations
 
 import pytest
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 from uuid import uuid4
+
+# The job calls the module-level helper `fetchall(conn, sql, params)` imported from
+# ..db, so tests patch `nara_worker.jobs.detect_patterns.fetchall` (not conn.fetchall).
 
 
 @pytest.mark.asyncio
 async def test_no_pattern_below_threshold():
     """count=2 is below MIN_DATA_POINTS=3 — no INSERT INTO patterns."""
     conn = AsyncMock()
-    conn.fetchall = AsyncMock(return_value=[])  # query filters count>=3, returns nothing
     conn.execute = AsyncMock()
 
     from nara_worker.jobs.detect_patterns import detect_patterns_for_user
-    result = await detect_patterns_for_user(conn, str(uuid4()))
+    with patch("nara_worker.jobs.detect_patterns.fetchall", AsyncMock(return_value=[])):
+        result = await detect_patterns_for_user(conn, str(uuid4()))
 
     assert result == 0
     conn.execute.assert_not_called()
@@ -24,7 +27,8 @@ async def test_pattern_written_at_threshold():
     """count=4 >= MIN_DATA_POINTS=3 — exactly one INSERT."""
     eid_a, eid_b = str(uuid4()), str(uuid4())
     conn = AsyncMock()
-    conn.fetchall = AsyncMock(return_value=[
+    conn.execute = AsyncMock()
+    rows = [
         {
             "entity_a_id": eid_a,
             "entity_b_id": eid_b,
@@ -32,11 +36,11 @@ async def test_pattern_written_at_threshold():
             "name_a": "Work",
             "name_b": "Stress",
         }
-    ])
-    conn.execute = AsyncMock()
+    ]
 
     from nara_worker.jobs.detect_patterns import detect_patterns_for_user
-    result = await detect_patterns_for_user(conn, str(uuid4()))
+    with patch("nara_worker.jobs.detect_patterns.fetchall", AsyncMock(return_value=rows)):
+        result = await detect_patterns_for_user(conn, str(uuid4()))
 
     assert result == 1
     conn.execute.assert_called_once()
@@ -49,7 +53,8 @@ async def test_pattern_description_is_human_readable():
     """Verify description mentions both entity names."""
     eid_a, eid_b = str(uuid4()), str(uuid4())
     conn = AsyncMock()
-    conn.fetchall = AsyncMock(return_value=[
+    conn.execute = AsyncMock()
+    rows = [
         {
             "entity_a_id": eid_a,
             "entity_b_id": eid_b,
@@ -57,11 +62,11 @@ async def test_pattern_description_is_human_readable():
             "name_a": "Rohan",
             "name_b": "Stress",
         }
-    ])
-    conn.execute = AsyncMock()
+    ]
 
     from nara_worker.jobs.detect_patterns import detect_patterns_for_user
-    await detect_patterns_for_user(conn, str(uuid4()))
+    with patch("nara_worker.jobs.detect_patterns.fetchall", AsyncMock(return_value=rows)):
+        await detect_patterns_for_user(conn, str(uuid4()))
 
     call_args = conn.execute.call_args[0]
     description = call_args[1][1]  # second positional param is the description
@@ -72,16 +77,17 @@ async def test_pattern_description_is_human_readable():
 @pytest.mark.asyncio
 async def test_multiple_patterns_multiple_inserts():
     conn = AsyncMock()
-    conn.fetchall = AsyncMock(return_value=[
+    conn.execute = AsyncMock()
+    rows = [
         {"entity_a_id": str(uuid4()), "entity_b_id": str(uuid4()),
          "count": 3, "name_a": "Work", "name_b": "Anxiety"},
         {"entity_a_id": str(uuid4()), "entity_b_id": str(uuid4()),
          "count": 7, "name_a": "Books", "name_b": "Calm"},
-    ])
-    conn.execute = AsyncMock()
+    ]
 
     from nara_worker.jobs.detect_patterns import detect_patterns_for_user
-    result = await detect_patterns_for_user(conn, str(uuid4()))
+    with patch("nara_worker.jobs.detect_patterns.fetchall", AsyncMock(return_value=rows)):
+        result = await detect_patterns_for_user(conn, str(uuid4()))
 
     assert result == 2
     assert conn.execute.call_count == 2
